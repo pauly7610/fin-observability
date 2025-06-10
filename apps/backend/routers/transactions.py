@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from slowapi.decorator import limiter as rate_limiter
+from fastapi import APIRouter, Depends, HTTPException, Request
+from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..models import Transaction as TransactionModel
@@ -18,8 +18,8 @@ tracer = trace.get_tracer(__name__)
 router = APIRouter(prefix="/transactions", tags=["transactions", "export"])
 
 @router.get("/export")
-@rate_limiter("15/minute")  # Export endpoint, moderate limit
-async def export_transactions(
+@limiter.limit("15/minute")  # Export endpoint, moderate limit
+async def export_transactions(request: Request,
     status: Optional[str] = None,
     currency: Optional[str] = None,
     is_anomaly: Optional[bool] = None,

@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from .routers import approval
 from fastapi.middleware.cors import CORSMiddleware
-from slowapi import Limiter, _rate_limit_exceeded_handler
-from slowapi.util import get_remote_address
+from slowapi import _rate_limit_exceeded_handler
+from apps.backend.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from opentelemetry import trace
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -10,7 +10,8 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
-from apps.backend.database import engine, Base, logging
+from apps.backend.database import engine, Base
+import logging
 import structlog
 from opentelemetry import trace
 
@@ -101,10 +102,8 @@ app = FastAPI(
 )
 app.include_router(approval.router)
 
-# Rate Limiter (in-memory backend for demo; use Redis for prod)
-limiter = Limiter(key_func=get_remote_address)
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+app.add_exception_handler(RateLimitExceeded, limiter._rate_limit_exceeded_handler)
 
 # Configure CORS
 app.add_middleware(
@@ -148,9 +147,9 @@ def escalation_job():
 scheduler.add_job(escalation_job, 'interval', hours=1, id='agentic_escalation')
 scheduler.start()
 
-from slowapi.decorator import limiter as rate_limiter
+# Limiter is now created below and imported by routers
 
 @app.get("/health")
-@rate_limiter("5/minute")  # Example: 5 requests per minute per IP
+@limiter.limit("5/minute")  # Example: 5 requests per minute per IP
 async def health_check(request):
     return {"status": "healthy"} 

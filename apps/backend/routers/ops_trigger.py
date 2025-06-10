@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from slowapi.decorator import limiter as rate_limiter
+from fastapi import APIRouter, Depends, HTTPException, Request
+from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 from ..services.agent_service import AgenticTriageService
@@ -19,8 +19,8 @@ compliance_service = ComplianceAutomationService()
 audit_service = AuditSummaryService()
 
 @router.post("/triage")
-@rate_limiter("3/minute")  # LLM endpoint, strict limit
-async def trigger_triage(
+@limiter.limit("3/minute")  # LLM endpoint, strict limit
+async def trigger_triage(request: Request,
     incident: Dict[str, Any],
     db: Session = Depends(get_db),
     user=Depends(require_role(["admin", "analyst", "compliance"]))
@@ -48,8 +48,8 @@ async def trigger_triage(
     return response
 
 @router.post("/remediate")
-@rate_limiter("3/minute")  # LLM endpoint, strict limit
-async def trigger_remediation(
+@limiter.limit("3/minute")  # LLM endpoint, strict limit
+async def trigger_remediation(request: Request,
     incident: Dict[str, Any],
     db: Session = Depends(get_db),
     user=Depends(require_role(["admin", "analyst", "compliance"]))
@@ -77,8 +77,8 @@ async def trigger_remediation(
     return response
 
 @router.post("/compliance")
-@rate_limiter("3/minute")  # LLM endpoint, strict limit
-async def trigger_compliance(
+@limiter.limit("3/minute")  # LLM endpoint, strict limit
+async def trigger_compliance(request: Request,
     transaction: Dict[str, Any],
     db: Session = Depends(get_db),
     user=Depends(require_role(["admin", "compliance"]))

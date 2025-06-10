@@ -1,10 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException
-from slowapi.decorator import limiter as rate_limiter
+from fastapi import APIRouter, Depends, HTTPException, Request
+from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..models import User as UserModel
 from ..database import get_db
-from ..security import require_role
+from ..security import require_role, get_current_user
 from datetime import datetime
 import csv
 from fastapi.responses import StreamingResponse
@@ -17,8 +17,8 @@ tracer = trace.get_tracer(__name__)
 router = APIRouter(prefix="/users", tags=["users", "export"])
 
 @router.get("/export")
-@rate_limiter("15/minute")  # Export endpoint, moderate limit
-async def export_users(
+@limiter.limit("15/minute")  # Export endpoint, moderate limit
+async def export_users(request: Request,
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
     start: Optional[str] = None,

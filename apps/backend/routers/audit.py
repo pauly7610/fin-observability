@@ -1,5 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException
-from slowapi.decorator import limiter as rate_limiter
+from fastapi import APIRouter, Depends, HTTPException, Request
+from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..models import AgentAction as AgentActionModel
@@ -15,8 +15,8 @@ tracer = trace.get_tracer(__name__)
 router = APIRouter(prefix="/audit", tags=["audit", "export"])
 
 @router.get("/actions", response_model=List[dict])
-@rate_limiter("30/minute")  # Listing endpoint, higher limit
-async def list_agent_actions(
+@limiter.limit("30/minute")  # Listing endpoint, higher limit
+async def list_agent_actions(request: Request,
     status: Optional[str] = None,
     action: Optional[str] = None,
     submitted_by: Optional[int] = None,
@@ -67,8 +67,8 @@ async def list_agent_actions(
             raise
 
 @router.get("/actions/export")
-@rate_limiter("15/minute")  # Export endpoint, moderate limit
-async def export_agent_actions(
+@limiter.limit("15/minute")  # Export endpoint, moderate limit
+async def export_agent_actions(request: Request,
     status: Optional[str] = None,
     action: Optional[str] = None,
     submitted_by: Optional[int] = None,

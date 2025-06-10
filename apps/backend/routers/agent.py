@@ -1,5 +1,5 @@
-from fastapi import APIRouter, HTTPException, Depends
-from slowapi.decorator import limiter as rate_limiter
+from fastapi import APIRouter, HTTPException, Depends, Request
+from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
 from ..services.agent_service import AgenticTriageService
@@ -48,8 +48,8 @@ async def get_lcr_status(
             raise HTTPException(status_code=500, detail=str(e))
 
 @router.post("/triage")
-@rate_limiter("3/minute")  # LLM endpoint, strict limit
-async def triage_incident(incident: Dict[str, Any], db: Session = Depends(get_db), user=Depends(require_role(["admin", "compliance", "analyst"]))):
+@limiter.limit("3/minute")  # LLM endpoint, strict limit
+async def triage_incident(request: Request,incident: Dict[str, Any], db: Session = Depends(get_db), user=Depends(require_role(["admin", "compliance", "analyst"]))):
     """Run agentic triage on an incident/anomaly and submit for approval."""
     siem.send_syslog_event(
     event="Agent: Triage incident",
@@ -101,8 +101,8 @@ async def triage_incident(incident: Dict[str, Any], db: Session = Depends(get_db
             raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/actions", response_model=List[AgentAction])
-@rate_limiter("30/minute")  # Listing endpoint, higher limit
-async def list_agent_actions(status: str = None, db: Session = Depends(get_db), user=Depends(require_role(["admin", "compliance"]))):
+@limiter.limit("30/minute")  # Listing endpoint, higher limit
+async def list_agent_actions(request: Request,status: str = None, db: Session = Depends(get_db), user=Depends(require_role(["admin", "compliance"]))):
     """List agent actions, optionally filtered by status."""
     siem.send_syslog_event(f"Agent: List agent actions (status={status})", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
     from opentelemetry import trace
@@ -117,8 +117,8 @@ async def list_agent_actions(status: str = None, db: Session = Depends(get_db), 
         return actions
 
 @router.post("/actions/{action_id}/approve", response_model=AgentAction)
-@rate_limiter("10/minute")  # Approval endpoint, moderate limit
-async def approve_agent_action(action_id: int, approved_by: int, db: Session = Depends(get_db), user=Depends(require_role(["admin", "compliance"]))):
+@limiter.limit("10/minute")  # Approval endpoint, moderate limit
+async def approve_agent_action(request: Request,action_id: int, approved_by: int, db: Session = Depends(get_db), user=Depends(require_role(["admin", "compliance"]))):
     """Approve a pending agent action."""
     siem.send_syslog_event(
     event="Agent: Approve agent action",

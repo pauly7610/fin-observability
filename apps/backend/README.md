@@ -1,5 +1,10 @@
 # Fin Observability Backend
 
+> **⚠️ NOTE: This backend uses the new LangChain 0.3.x+ ecosystem (langchain-core, langchain-community, langchain-openai, etc.).**
+> - All code and dependencies must be compatible with LangChain 0.3.x+.
+> - Legacy LangChain code (0.2.x and below) will not work and must be refactored.
+> - If you need to run legacy agentic ops, use a separate Python environment with the old dependencies.
+
 ## Overview
 This backend powers the compliance, auditability, and agentic workflows for the Fin Observability platform. It is built with FastAPI, SQLAlchemy, and Postgres, and is designed for financial services and compliance-critical environments.
 
