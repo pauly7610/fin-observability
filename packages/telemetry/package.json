@@ -1,0 +1,40 @@
+{
+  "name": "@fin-ai-observability/telemetry",
+  "version": "0.1.0",
+  "private": true,
+  "main": "./dist/index.js",
+  "module": "./dist/index.mjs",
+  "types": "./dist/index.d.ts",
+  "scripts": {
+    "build": "tsup",
+    "dev": "tsup --watch",
+    "lint": "eslint src/",
+    "test": "jest"
+  },
+  "dependencies": {
+    "@opentelemetry/api": "latest", 
+    "@opentelemetry/sdk-trace-base": "latest", 
+    "@opentelemetry/sdk-trace-node": "latest", 
+    "@opentelemetry/exporter-trace-otlp-http": "latest", 
+    "@opentelemetry/instrumentation": "latest", 
+    "@opentelemetry/instrumentation-http": "latest", 
+    "@opentelemetry/instrumentation-express": "latest", 
+    "@opentelemetry/resources": "latest", 
+    "@opentelemetry/semantic-conventions": "latest", 
+    "@opentelemetry/sdk-node": "latest", 
+    "@opentelemetry/auto-instrumentations-node": "latest", 
+    "@opentelemetry/instrumentation-graphql": "latest", 
+    "@opentelemetry/instrumentation-pg": "latest", 
+    "@opentelemetry/instrumentation-redis": "latest"
+  },
+  "devDependencies": {
+    "typescript": "5.8.3",
+    "tsup": "^8.0.2",
+    "@types/node": "^20.12.7",
+    "eslint": "^8.56.0",
+    "@typescript-eslint/eslint-plugin": "^7.5.0",
+    "@typescript-eslint/parser": "^7.5.0",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.2"
+  }
+} 

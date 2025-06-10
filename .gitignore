@@ -1,0 +1,103 @@
+# === General OS/Editor ===
+.DS_Store
+Thumbs.db
+*.log
+*.swp
+*.swo
+.idea/
+.vscode/
+*.iml
+
+# === Node/Frontend ===
+node_modules/
+.pnp/
+.pnp.js
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# === Next.js/React/Build Artifacts ===
+.next/
+out/
+build/
+dist/
+coverage/
+
+# === Python/Backend ===
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+.venv/
+venv/
+env/
+ENV/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+
+# === Environment variables / Secrets ===
+.env
+.env.*
+.env.local
+.env.development.local
+.env.production.local
+.env.test.local
+
+# === Misc ===
+*.sqlite3
+db.sqlite3
+*.bak
+*.tmp
+
+# === Monorepo/Workspace Artifacts ===
+**/node_modules/
+**/.env
+**/.env.*
+**/__pycache__/
+**/.venv/
+**/dist/
+**/build/
+**/.next/
+**/coverage/
+
+# === Ignore lock files if not committed ===
+# package-lock.json
+yarn.lock
+
+# === Ignore macOS and Windows trash ===
+.Trashes
+.env.test.local
+.env.production.local
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Turbo
+.turbo 
