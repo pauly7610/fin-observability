@@ -40,6 +40,74 @@ This backend powers the compliance, auditability, and agentic workflows for the 
 
 ---
 
+## Approval Workflow (Sensitive Actions & Exports)
+
+### Overview
+Sensitive backend actions (agentic triage, remediation, compliance automation, audit summarization, and all major exports) are gated by an explicit approval workflow. This enforces compliance and auditability, requiring privileged users to approve actions before execution.
+
+### Which Endpoints Require Approval?
+- `/agent/triage` — Agentic triage (approval required)
+- `/agent/remediate` — Agentic remediation (approval required)
+- `/agent/compliance` — Agentic compliance automation (approval required)
+- `/agent/audit_summary` — Agentic audit summarization (approval required)
+- `/incidents/export` — Export incidents (approval required)
+- `/transactions/export` — Export transactions (approval required)
+- `/compliance/logs/export` — Export compliance logs (approval required)
+- `/users/export` — Export users (approval required)
+
+### How It Works
+- When a user requests a sensitive action or export, the backend checks for an approved `ApprovalRequest` for that resource/user.
+- If not approved, a new approval request is created and the action is blocked until approved by an authorized user (`admin`, `compliance`, or `analyst` roles).
+- Once approved, the action proceeds as normal.
+
+### Approval API Endpoints
+- `GET /approval/?status=pending|approved|rejected` — List approval requests, filterable by status.
+- `POST /approval/{approval_id}/decision` — Submit an approval or rejection decision with an optional reason.
+- All approval actions are RBAC-gated and fully audit-logged.
+
+### Audit Trail & Compliance
+- Every approval request and decision is logged in the audit trail (`AgentActionAuditLog`), including decision reasons and timestamps.
+- SIEM/syslog events are emitted for all approval and rejection actions.
+- The audit trail is surfaced both in the backend and in the frontend UI for transparency.
+
+### Frontend Integration
+- The frontend provides a dedicated Approvals dashboard, contextual approval status/actions on resource detail pages, and sidebar notifications for pending approvals.
+- Approval actions are only visible to authorized roles, with clear feedback and notification UX.
+- Batch approval/rejection is supported in the Approvals dashboard for power users.
+
+### Extensibility
+- The workflow supports future multi-step or multi-role approvals, and is designed for extensibility and compliance-critical environments.
+
+---
+
+- All approval actions are logged for audit and SIEM monitoring.
+
+### Approval API Endpoints
+- `POST /approval/` — Submit a new approval request
+- `GET /approval/` — List approval requests (with optional status filter)
+- `POST /approval/{approval_id}/decision` — Approve or reject a pending approval
+
+### Example Approval Request Flow
+1. User attempts to export incidents via `/incidents/export`.
+2. If no approval exists, backend responds:
+   ```json
+   {
+     "detail": "Export requires approval",
+     "approval_request_id": 42,
+     "status": "pending"
+   }
+   ```
+3. Admin/compliance user reviews and approves via `POST /approval/{approval_id}/decision`.
+4. User can now re-attempt the export, which will succeed.
+
+### Frontend Integration
+- Approval tasks are surfaced in the sidebar (`TaskSidebar`) and dashboard.
+- Approval requests and history are visible in detail pages and a dedicated approvals UI.
+- Users with appropriate roles can approve/reject/escalate requests directly from the UI.
+- All approval-related API calls are handled via the shared `apiRequest` utility.
+
+---
+
 ## API Endpoints
 
 ### Agentic Operations

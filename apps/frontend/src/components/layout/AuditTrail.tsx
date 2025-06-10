@@ -82,31 +82,33 @@ export function AuditTrail({ resource, resourceId }: { resource: string; resourc
             const actionKey = getActionKey(log.action);
             const icon = actionIcons[actionKey] || actionIcons.default;
             const color = actionColors[actionKey] || actionColors.default;
+            const isApproval = log.action?.toLowerCase().includes('approve') || log.action?.toLowerCase().includes('reject');
+            const decisionReason = log.details && log.details.toLowerCase().includes('decision reason')
+              ? log.details.match(/decision reason: ([^\n]+)/i)?.[1]
+              : undefined;
             return (
-              <li key={log.id} className="py-3 px-2 hover:bg-background-tertiary rounded transition-colors group">
-                <div className="flex items-center gap-3">
-                  <span className={`text-xl ${color}`}>{icon}</span>
-                  <span className={`font-semibold ${color}`}>{log.action}</span>
-                  <span className="ml-auto text-xs text-text-secondary">{new Date(log.timestamp).toLocaleString()}</span>
+              <li key={log.id} className={`mb-2 ${isApproval ? 'bg-green-50 dark:bg-green-900/20 border-l-4 border-green-400' : ''}`}>
+                <div className="flex items-center">
+                  <span className={`font-semibold mr-2 ${isApproval ? 'text-accent-success' : ''}`}>{log.action}</span>
+                  <span className="text-xs text-text-secondary">{new Date(log.timestamp).toLocaleString()}</span>
+                  <button
+                    className="ml-2 text-xs text-accent-info underline"
+                    onClick={() => toggleExpand(log.id)}
+                    aria-expanded={!!expanded[log.id]}
+                    aria-controls={`audit-details-${log.id}`}
+                  >
+                    Details
+                  </button>
                 </div>
-                <div className="flex items-center gap-2 mt-1">
-                  <span className="text-xs text-text-secondary">User: <span className="font-medium text-text-primary">{log.user}</span></span>
-                  <span className="text-xs text-text-secondary">Category: <span className="font-medium text-text-primary">{log.category}</span></span>
-                </div>
-                <button
-                  className="text-accent-info text-xs mt-1 underline focus:outline-none"
-                  aria-expanded={!!expanded[log.id]}
-                  aria-controls={`audit-details-${log.id}`}
-                  onClick={() => toggleExpand(log.id)}
-                >
-                  {expanded[log.id] ? 'Hide Details' : 'Show Details'}
-                </button>
                 <div
                   id={`audit-details-${log.id}`}
                   className={`transition-all text-sm mt-1 ${expanded[log.id] ? 'max-h-40 opacity-100' : 'max-h-0 opacity-0 overflow-hidden'} bg-background-primary rounded px-2 py-1 border border-background-tertiary`}
                   style={{ pointerEvents: expanded[log.id] ? 'auto' : 'none' }}
                 >
                   {log.details}
+                  {isApproval && decisionReason && (
+                    <div className="mt-1 text-xs text-accent-info">Decision reason: {decisionReason}</div>
+                  )}
                 </div>
               </li>
             );

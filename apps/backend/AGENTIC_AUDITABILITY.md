@@ -27,10 +27,22 @@ These fields are critical for:
 ## Audit Logging
 
 - All agentic and human actions are logged in `AgentActionAuditLog`.
-- Each log entry captures the state transition, operator, timestamp, and full agentic context.
+- Each log entry captures the state transition, operator, timestamp, and full
+  agentic context.
 - SIEM/syslog events are emitted for critical actions.
 
 ---
+
+## Approval Workflow & Audit Trail Integration
+
+- All approval requests and decisions are recorded in the audit trail for full
+  compliance and traceability.
+- Each approval or rejection decision logs the decider, timestamp, and decision
+  reason (if provided).
+- Approval actions are surfaced in both the backend and frontend audit UIs,
+  highlighted for easy compliance review.
+- SIEM/syslog integration ensures all approval events are available for
+  external monitoring and audit.
 
 ## Example: Agentic Action Lifecycle
 

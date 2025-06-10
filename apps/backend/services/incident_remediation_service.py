@@ -6,8 +6,10 @@ from langgraph.graph import StateGraph
 from langchain_core.tools import tool
 from typing import Dict, Any
 import logging
+from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 @tool
 def recommend_remediation(incident: str) -> dict:
@@ -71,12 +73,6 @@ class IncidentRemediationService:
         self.tools = [recommend_remediation, classify_incident]
         self.agent = create_react_agent(self.llm, self.tools)
         from pydantic import BaseModel
-
-class IncidentRemediationService:
-    def __init__(self):
-        self.llm = ChatOpenAI(temperature=0)
-        self.tools = [recommend_remediation, classify_incident]
-        self.agent = create_react_agent(self.llm, self.tools)
         class RemediationState(BaseModel):
             input: str
             output: Any = None
@@ -86,29 +82,39 @@ class IncidentRemediationService:
         workflow.set_finish_point("agent")
         self.workflow = workflow.compile()
 
-    def remediate_incident(self, incident: Dict[str, Any]) -> dict:
+    def remediate_incident(self, incident: Dict[str, Any], user_id: str = None) -> dict:
         prompt = (
             "Given the following incident, classify its severity using the classify_incident tool, "
             "and recommend remediation steps using the recommend_remediation tool. "
             f"Incident: {incident}"
         )
-        try:
-            result = self.workflow.invoke({"input": prompt})
-            output = result.get("output", str(result))
-            if isinstance(output, dict):
-                return output
-            else:
+        incident_id = incident.get('incident_id', 'unknown')
+        with tracer.start_as_current_span("agent.remediate_incident") as span:
+            span.set_attribute("incident.id", incident_id)
+            if user_id is not None:
+                span.set_attribute("user.id", user_id)
+            span.set_attribute("llm.input_size", len(str(prompt)))
+            try:
+                result = self.workflow.invoke({"input": prompt})
+                output = result.get("output", str(result))
+                if isinstance(output, dict):
+                    span.set_attribute("llm.result_type", "dict")
+                    return output
+                else:
+                    span.set_attribute("llm.result_type", "unstructured")
+                    return {
+                        "risk_level": "unknown",
+                        "confidence": 0.0,
+                        "rationale": "Agent returned unstructured output.",
+                        "recommendation": output
+                    }
+            except Exception as e:
+                span.record_exception(e)
+                from apps.backend.main import get_logger
+                get_logger(__name__).error("Incident remediation failed", error=str(e))
                 return {
-                    "risk_level": "unknown",
+                    "risk_level": "error",
                     "confidence": 0.0,
-                    "rationale": "Agent returned unstructured output.",
-                    "recommendation": output
+                    "rationale": f"Agent error: {str(e)}",
+                    "recommendation": "Manual review required."
                 }
-        except Exception as e:
-            logger.error(f"Incident remediation failed: {str(e)}")
-            return {
-                "risk_level": "error",
-                "confidence": 0.0,
-                "rationale": f"Agent error: {str(e)}",
-                "recommendation": "Manual review required."
-            }

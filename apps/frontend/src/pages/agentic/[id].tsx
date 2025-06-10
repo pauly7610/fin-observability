@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useRouter } from 'next/router';
 import { apiRequest } from '../../apiRequest';
 import { AuditTrail } from '@/components/layout/AuditTrail';
+import { AgenticApprovalStatus } from '../../components/AgenticApprovalStatus';
 
 interface AgenticWorkflow {
   id: string;
@@ -59,6 +60,10 @@ export default function AgenticWorkflowDetailPage() {
           <h1 className="text-2xl font-bold mb-2">{workflow.name}</h1>
           <p className="mb-2 text-sm text-text-secondary">ID: {workflow.id}</p>
           <p className="mb-2">Status: <span className="font-semibold">{workflow.status}</span></p>
+          {/* Approval Status */}
+          <div className="mb-6">
+            <AgenticApprovalStatus workflowId={workflow.id} />
+          </div>
           <p className="mb-2">Last Run: {new Date(workflow.last_run).toLocaleString()}</p>
           <p className="mb-2">Explainability: {workflow.explainability || '-'}</p>
           <div className="mt-6 space-y-4">

@@ -49,6 +49,24 @@ This document provides a concise reference for the main backend API endpoints, r
 
 ---
 
+### Approval Workflow
+- **GET `/approval/?status=pending|approved|rejected`**
+  - List approval requests, optionally filtered by status.
+  - **Requires:** Authenticated user with `admin`, `compliance`, or
+    `analyst` role.
+  - **Returns:** Array of approval request objects.
+
+- **POST `/approval/{approval_id}/decision`**
+  - Submit an approval or rejection decision for a request.
+  - **Body:** `{ "decision": "approved" | "rejected", "decision_reason": "..." }`
+  - **Requires:** Authenticated user with `admin`, `compliance`, or
+    `analyst` role.
+  - **Returns:** Updated approval request object.
+
+Approval requests and decisions are fully audit-logged, including decision
+reasons and timestamps. All approval actions are surfaced in the frontend UI
+and audit trail.
+
 ### Export & Compliance
 - **GET `/export_metadata/`**
   - List export jobs and statuses.

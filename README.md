@@ -15,6 +15,22 @@ Kafka streaming stubs for event ingestion.
 
 Next.js frontend with real-time dashboard and compliance badges.
 
+Approval Workflow & Compliance
+-----------------------------
+Sensitive actions and exports are protected by a robust approval workflow.
+All major backend actions (agentic triage, remediation, compliance exports,
+user data exports, etc.) require explicit approval from privileged users
+(`admin`, `compliance`, or `analyst` roles) before execution.
+
+- Approval requests are surfaced in a dedicated frontend dashboard, in resource
+  detail pages, and in the sidebar for quick access.
+- Only authorized users can approve/reject, with clear UI feedback and audit
+  logging.
+- All approval actions and decisions are fully audit-logged and surfaced in the
+  audit trail for compliance and transparency.
+- Batch approval/rejection is supported in the UI for power users.
+- The workflow is designed for extensibility (multi-step, multi-role, etc.).
+
 Monorepo Structure
 text
 fin-ai-observability/

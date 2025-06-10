@@ -51,6 +51,8 @@ def create_export_metadata(
     db.refresh(new_export)
     return new_export
 
+# WORM Policy: ExportMetadata is Write Once, Read Many (WORM) for compliance. Only delivery_status, verification_status, delivered_at, and verified_at can ever be updated. All other fields are immutable after creation.
+
 @router.patch("/{export_id}", response_model=ExportMetadata)
 def update_export_metadata(
     export_id: int,
@@ -61,16 +63,20 @@ def update_export_metadata(
     db: Session = Depends(get_db),
     user=Depends(require_role(["admin", "compliance"]))
 ) -> ExportMetadata:
+    """
+    Update only status or verification fields for ExportMetadata. All other fields are immutable (WORM compliance).
+    """
     export = db.query(ExportMetadataModel).filter(ExportMetadataModel.id == export_id).first()
     if not export:
         raise HTTPException(status_code=404, detail="Export not found")
-    if delivery_status:
+    # Only allow updates to status/verification fields
+    if delivery_status is not None:
         export.delivery_status = delivery_status
-    if verification_status:
+    if verification_status is not None:
         export.verification_status = verification_status
-    if delivered_at:
+    if delivered_at is not None:
         export.delivered_at = delivered_at
-    if verified_at:
+    if verified_at is not None:
         export.verified_at = verified_at
     db.commit()
     db.refresh(export)

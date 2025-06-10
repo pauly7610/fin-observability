@@ -48,17 +48,19 @@ async def export_system_metrics(
                 writer.writerow({fn: getattr(m, fn) for fn in fieldnames})
             output.seek(0)
             siem.send_syslog_event(
-                f"System metrics exported as CSV, count={len(metrics)}",
-                host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
-                port=int(os.getenv("SIEM_SYSLOG_PORT", "514"))
-            )
+    event="System metrics exported as CSV",
+    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    extra={"count": len(metrics), "user": str(user.get('id') if hasattr(user, 'id') else user)}
+)
             return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=system_metrics.csv"})
         else:
             siem.send_syslog_event(
-                f"System metrics exported as JSON, count={len(metrics)}",
-                host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
-                port=int(os.getenv("SIEM_SYSLOG_PORT", "514"))
-            )
+    event="System metrics exported as JSON",
+    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    extra={"count": len(metrics), "user": str(user.get('id') if hasattr(user, 'id') else user)}
+)
             return [m.__dict__ for m in metrics]
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

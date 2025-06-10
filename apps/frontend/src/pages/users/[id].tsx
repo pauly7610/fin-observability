@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { apiRequest } from '../../apiRequest';
 import { Toast } from '@/components/layout/Toast';
 import { AuditTrail } from '@/components/layout/AuditTrail';
+import { UserApprovalStatus } from '../../components/UserApprovalStatus';
 
 interface User {
   id: string;
@@ -59,6 +60,10 @@ export default function UserDetailPage() {
     <div className="p-8 max-w-2xl mx-auto">
       {toast && <Toast message={toast.message} type={toast.type} onClose={() => setToast(null)} />}
       <h1 className="text-2xl font-bold mb-4">User Detail</h1>
+      {/* Approval Status */}
+      <div className="mb-6">
+        <UserApprovalStatus userId={id as string} />
+      </div>
       <button onClick={() => router.back()} className="mb-4 text-accent-info">&larr; Back</button>
       {loading ? (
         <div>Loading user...</div>

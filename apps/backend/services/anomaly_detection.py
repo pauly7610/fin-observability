@@ -87,7 +87,7 @@ class AnomalyDetectionService:
             }
 
             return anomaly_flags, scores.tolist(), model_meta
-
         except Exception as e:
-            logger.error(f"Error in anomaly detection: {str(e)}")
-            raise 
+            from apps.backend.main import get_logger
+            get_logger(__name__).error("Error in anomaly detection", error=str(e))
+            raise

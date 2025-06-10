@@ -22,10 +22,15 @@ async def create_compliance_log(log: dict, db: Session = Depends(get_db), user=D
         db.commit()
         db.refresh(new_log)
         from apps.backend import siem
-        siem.send_syslog_event(f"Compliance log created: id={new_log.id}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+        siem.send_syslog_event(
+    event="Compliance log created",
+    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    extra={"log_id": new_log.id, "user": str(user.get('id') if hasattr(user, 'id') else user)}
+)
         return new_log
     except Exception as e:
-        logger.error(f"Error creating compliance log: {str(e)}")
+        get_logger(__name__).error("Error creating compliance log", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 async def create_compliance_log(
@@ -41,10 +46,15 @@ async def create_compliance_log(
         db.add(new_log)
         db.commit()
         db.refresh(new_log)
-        siem.send_syslog_event(f"Compliance log created: id={new_log.id}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+        siem.send_syslog_event(
+    event="Compliance log created",
+    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    extra={"log_id": new_log.id, "user": str(user.get('id') if hasattr(user, 'id') else user)}
+)
         return new_log
     except Exception as e:
-        logger.error(f"Error creating compliance log: {str(e)}")
+        get_logger(__name__).error("Error creating compliance log", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/logs", response_model=List[ComplianceLog])
@@ -92,45 +102,74 @@ async def export_compliance_logs(
     """
     Export compliance logs as CSV or JSON, with RBAC and filtering.
     """
-    try:
-        query = db.query(ComplianceLogModel)
-        if event_type:
-            query = query.filter(ComplianceLogModel.event_type == event_type)
-        if severity:
-            query = query.filter(ComplianceLogModel.severity == severity)
-        if is_resolved is not None:
-            query = query.filter(ComplianceLogModel.is_resolved == is_resolved)
-        if start:
-            from dateutil.parser import parse
-            query = query.filter(ComplianceLogModel.timestamp >= parse(start))
-        if end:
-            from dateutil.parser import parse
-            query = query.filter(ComplianceLogModel.timestamp <= parse(end))
-        logs = query.order_by(ComplianceLogModel.timestamp.desc()).all()
-        if format == "csv":
-            import csv
-            from fastapi.responses import StreamingResponse
-            from io import StringIO
-            fieldnames = [c.name for c in ComplianceLogModel.__table__.columns]
-            output = StringIO()
-            writer = csv.DictWriter(output, fieldnames=fieldnames)
-            writer.writeheader()
-            for log in logs:
-                writer.writerow({fn: getattr(log, fn) for fn in fieldnames})
-            output.seek(0)
-            # Digitally sign hash chain for manual exports
-            hash_chain = hashlib.sha256(output.read().encode()).hexdigest()
-            siem.send_syslog_event(f"Compliance log export: hash={hash_chain}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
-            siem.send_syslog_event(f"Compliance log export: hash={hash_chain}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
-            return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=compliance_logs.csv"})
-        else:
-            # Default to JSON
-            siem.send_syslog_event(f"Compliance log export: count={len(logs)}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
-            siem.send_syslog_event(f"Compliance log export: count={len(logs)}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
-            return [log.__dict__ for log in logs]
-    except Exception as e:
-        logger.error(f"Error exporting compliance logs: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
+    user_id = getattr(user, 'id', None) if hasattr(user, 'id') else None
+    from apps.backend.approval import require_approval
+    approved, approval_req = require_approval(
+        db=db,
+        resource_type="compliance_export",
+        resource_id=f"compliance_{event_type}_{severity}_{is_resolved}_{start}_{end}",
+        user_id=user_id,
+        reason="Export compliance logs for audit/review",
+        meta={"event_type": event_type, "severity": severity, "is_resolved": is_resolved, "start": start, "end": end}
+    )
+    if not approved:
+        return {"detail": "Export requires approval", "approval_request_id": approval_req.id, "status": approval_req.status.value}
+    from opentelemetry import trace
+    tracer = trace.get_tracer(__name__)
+    with tracer.start_as_current_span("export.compliance_logs") as span:
+        span.set_attribute("format", format)
+        span.set_attribute("event_type", event_type)
+        span.set_attribute("severity", severity)
+        span.set_attribute("is_resolved", is_resolved)
+        span.set_attribute("start", start)
+        span.set_attribute("end", end)
+        try:
+            query = db.query(ComplianceLogModel)
+            if event_type:
+                query = query.filter(ComplianceLogModel.event_type == event_type)
+            if severity:
+                query = query.filter(ComplianceLogModel.severity == severity)
+            if is_resolved is not None:
+                query = query.filter(ComplianceLogModel.is_resolved == is_resolved)
+            if start:
+                from dateutil.parser import parse
+                query = query.filter(ComplianceLogModel.timestamp >= parse(start))
+            if end:
+                from dateutil.parser import parse
+                query = query.filter(ComplianceLogModel.timestamp <= parse(end))
+            logs = query.order_by(ComplianceLogModel.timestamp.desc()).all()
+            span.set_attribute("export.record_count", len(logs))
+            if format == "csv":
+                import csv
+                from fastapi.responses import StreamingResponse
+                from io import StringIO
+                fieldnames = [c.name for c in ComplianceLogModel.__table__.columns]
+                output = StringIO()
+                writer = csv.DictWriter(output, fieldnames=fieldnames)
+                writer.writeheader()
+                for log in logs:
+                    writer.writerow({fn: getattr(log, fn) for fn in fieldnames})
+                output.seek(0)
+                # Digitally sign hash chain for manual exports
+                hash_chain = hashlib.sha256(output.read().encode()).hexdigest()
+                span.set_attribute("export.hash", hash_chain)
+                siem.send_syslog_event(f"Compliance log export: hash={hash_chain}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+                return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=compliance_logs.csv"})
+            else:
+                # Default to JSON
+                siem.send_syslog_event(
+    event="Compliance log export",
+    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    extra={"count": len(logs), "user": str(user.get('id') if hasattr(user, 'id') else user)}
+)
+                return [log.__dict__ for log in logs]
+        except Exception as e:
+            span.record_exception(e)
+            from opentelemetry.trace.status import Status, StatusCode
+            span.set_status(Status(StatusCode.ERROR, str(e)))
+            logger.error(f"Error exporting compliance logs: {str(e)}")
+            raise HTTPException(status_code=500, detail=str(e))
 
 @router.put("/logs/{log_id}/resolve")
 async def resolve_compliance_log(log_id: int, db: Session = Depends(get_db), user=Depends(require_role(["admin", "compliance"]))) -> ComplianceLog:
@@ -141,10 +180,15 @@ async def resolve_compliance_log(log_id: int, db: Session = Depends(get_db), use
         log.is_resolved = True
         db.commit()
         from apps.backend import siem
-        siem.send_syslog_event(f"Compliance log resolved: id={log_id}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+        siem.send_syslog_event(
+    event="Compliance log resolved",
+    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    extra={"log_id": log_id, "user": str(user.get('id') if hasattr(user, 'id') else user)}
+)
         return log
     except Exception as e:
-        logger.error(f"Error resolving compliance log: {str(e)}")
+        get_logger(__name__).error("Error resolving compliance log", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 async def resolve_compliance_log(
@@ -168,7 +212,7 @@ async def resolve_compliance_log(
     except HTTPException:
         raise
     except Exception as e:
-        logger.error(f"Error resolving compliance log: {str(e)}")
+        get_logger(__name__).error("Error resolving compliance log", error=str(e))
         raise HTTPException(status_code=500, detail=str(e))
 
 @router.get("/logs/stats")

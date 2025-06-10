@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { theme } from '@/styles/theme';
+import { apiRequest } from '../../apiRequest';
 
 interface Task {
   id: string;
@@ -7,6 +8,16 @@ interface Task {
   status: 'ongoing' | 'pending' | 'completed';
   owner: 'agent' | 'human';
   nextAction: string;
+}
+
+interface ApprovalRequest {
+  id: number;
+  resource_type: string;
+  resource_id: string;
+  requested_by: number;
+  status: string;
+  reason: string;
+  created_at: string;
 }
 
 interface TaskSidebarProps {
@@ -22,10 +33,43 @@ export const TaskSidebar: React.FC<TaskSidebarProps> = ({ tasks = [] }) => {
     { ongoing: [], pending: [], completed: [] } as Record<string, Task[]>
   );
 
+  const [approvals, setApprovals] = useState<ApprovalRequest[]>([]);
+  const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    setLoading(true);
+    apiRequest<ApprovalRequest[]>('/approval/?status=pending')
+      .then(setApprovals)
+      .catch(() => setApprovals([]))
+      .finally(() => setLoading(false));
+  }, []);
+
   return (
     <div className="w-80 bg-background-secondary p-4 border-l border-gray-800">
       <h2 className="text-lg font-semibold mb-4">Workflow</h2>
-      
+
+      {/* Approvals Section */}
+      <div className="mb-6">
+        <h3 className="text-sm font-medium text-text-secondary mb-2">Approvals</h3>
+        <div className="space-y-2">
+          {loading ? (
+            <div className="text-xs text-text-secondary">Loading approvals...</div>
+          ) : approvals.length === 0 ? (
+            <div className="text-xs text-text-secondary">No pending approvals</div>
+          ) : (
+            approvals.map((a) => (
+              <div key={a.id} className="bg-background-primary rounded p-2 shadow flex flex-col">
+                <span className="text-xs text-accent-warning font-semibold">{a.resource_type} #{a.resource_id}</span>
+                <span className="text-xs text-text-secondary">{a.reason}</span>
+                <span className="text-xs text-text-secondary">Requested by: {a.requested_by}</span>
+                <span className="text-xs text-text-secondary">Created: {new Date(a.created_at).toLocaleString()}</span>
+                <a href={`/approvals`} className="text-xs text-accent-info mt-1 underline">Review</a>
+              </div>
+            ))
+          )}
+        </div>
+      </div>
+
       {/* Ongoing Tasks */}
       <div className="mb-6">
         <h3 className="text-sm font-medium text-text-secondary mb-2">Ongoing Tasks</h3>

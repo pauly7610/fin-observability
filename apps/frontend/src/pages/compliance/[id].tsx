@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { apiRequest } from '../../apiRequest';
 import { ResolveComplianceLogButton } from './ComplianceActions';
 import { AuditTrail } from '@/components/layout/AuditTrail';
+import { ComplianceApprovalStatus } from '../../components/ComplianceApprovalStatus';
 
 interface ComplianceLog {
   id: string;
@@ -46,6 +47,10 @@ export default function ComplianceLogDetailPage() {
           <p className="mb-2">Resolved At: {log.resolved_at ? new Date(log.resolved_at).toLocaleString() : '-'}</p>
           <div className="mt-6 space-y-4">
             <ResolveComplianceLogButton logId={log.id} onSuccess={() => router.reload()} />
+            {/* Approval Status */}
+            <div className="mt-6">
+              <ComplianceApprovalStatus logId={log.id} />
+            </div>
           </div>
         </div>
       ) : (

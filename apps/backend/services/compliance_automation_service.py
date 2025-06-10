@@ -6,8 +6,10 @@ from langgraph.graph import StateGraph
 from langchain_core.tools import tool
 from typing import Dict, Any
 import logging
+from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 @tool
 def check_compliance(transaction: str) -> dict:
@@ -74,12 +76,6 @@ class ComplianceAutomationService:
         self.tools = [check_compliance, recommend_compliance_action]
         self.agent = create_react_agent(self.llm, self.tools)
         from pydantic import BaseModel
-
-class ComplianceAutomationService:
-    def __init__(self):
-        self.llm = ChatOpenAI(temperature=0)
-        self.tools = [check_compliance, recommend_compliance_action]
-        self.agent = create_react_agent(self.llm, self.tools)
         class ComplianceState(BaseModel):
             input: str
             output: Any = None
@@ -89,29 +85,39 @@ class ComplianceAutomationService:
         workflow.set_finish_point("agent")
         self.workflow = workflow.compile()
 
-    def automate_compliance(self, transaction: Dict[str, Any]) -> dict:
+    def automate_compliance(self, transaction: Dict[str, Any], user_id: str = None) -> dict:
         prompt = (
             "Given the following transaction or event, check for compliance issues using the check_compliance tool, "
             "and recommend a compliance action using the recommend_compliance_action tool. "
             f"Transaction: {transaction}"
         )
-        try:
-            result = self.workflow.invoke({"input": prompt})
-            output = result.get("output", str(result))
-            if isinstance(output, dict):
-                return output
-            else:
+        transaction_id = transaction.get('transaction_id', 'unknown')
+        with tracer.start_as_current_span("agent.automate_compliance") as span:
+            span.set_attribute("transaction.id", transaction_id)
+            if user_id is not None:
+                span.set_attribute("user.id", user_id)
+            span.set_attribute("llm.input_size", len(str(prompt)))
+            try:
+                result = self.workflow.invoke({"input": prompt})
+                output = result.get("output", str(result))
+                if isinstance(output, dict):
+                    span.set_attribute("llm.result_type", "dict")
+                    return output
+                else:
+                    span.set_attribute("llm.result_type", "unstructured")
+                    return {
+                        "risk_level": "unknown",
+                        "confidence": 0.0,
+                        "rationale": "Agent returned unstructured output.",
+                        "recommendation": output
+                    }
+            except Exception as e:
+                span.record_exception(e)
+                from apps.backend.main import get_logger
+                get_logger(__name__).error("Compliance automation failed", error=str(e))
                 return {
-                    "risk_level": "unknown",
+                    "risk_level": "error",
                     "confidence": 0.0,
-                    "rationale": "Agent returned unstructured output.",
-                    "recommendation": output
+                    "rationale": f"Agent error: {str(e)}",
+                    "recommendation": "Manual review required."
                 }
-        except Exception as e:
-            logger.error(f"Compliance automation failed: {str(e)}")
-            return {
-                "risk_level": "error",
-                "confidence": 0.0,
-                "rationale": f"Agent error: {str(e)}",
-                "recommendation": "Manual review required."
-            }

@@ -5,8 +5,10 @@ from langchain_core.tools import tool
 from typing import Dict, Any
 from pydantic import BaseModel
 import logging
+from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 # Define tools using @tool decorator for LangGraph compatibility
 @tool
@@ -55,30 +57,36 @@ class AgenticTriageService:
 
     def triage_incident(self, incident: Dict[str, Any]) -> dict:
         prompt = (
-            "Given the following incident, classify its severity using the classify_incident tool, "
-            "and provide a recommended triage action. "
+            "Given the following incident or anomaly, classify its severity using the classify_incident tool, "
+            "and recommend remediation steps using the recommend_remediation tool. "
             f"Incident: {incident}"
         )
-        try:
-            result = self.workflow.invoke({"input": prompt})
-            output = result.get("output", str(result))
-            # If output is a string, wrap it in a dict; otherwise, expect dict from classify_incident
-            if isinstance(output, dict):
-                recommendation = f"Recommended triage action for risk level '{output['risk_level']}': escalate if medium/high, monitor if low."
-                output["recommendation"] = recommendation
-                return output
-            else:
+        incident_id = incident.get('incident_id', 'unknown')
+        with tracer.start_as_current_span("agent.triage_incident") as span:
+            span.set_attribute("incident.id", incident_id)
+            if user_id is not None:
+                span.set_attribute("user.id", user_id)
+            span.set_attribute("llm.input_size", len(str(prompt)))
+            try:
+                result = self.workflow.invoke({"input": prompt})
+                output = result.get("output", str(result))
+                if isinstance(output, dict):
+                    span.set_attribute("llm.result_type", "dict")
+                    return output
+                else:
+                    span.set_attribute("llm.result_type", "unstructured")
+                    return {
+                        "risk_level": "unknown",
+                        "confidence": 0.0,
+                        "rationale": "Agent returned unstructured output.",
+                        "recommendation": output
+                    }
+            except Exception as e:
+                span.record_exception(e)
+                logger.error(f"Agentic triage failed: {str(e)}")
                 return {
-                    "risk_level": "unknown",
+                    "risk_level": "error",
                     "confidence": 0.0,
-                    "rationale": "Agent returned unstructured output.",
-                    "recommendation": output
+                    "rationale": f"Agent error: {str(e)}",
+                    "recommendation": "Manual review required."
                 }
-        except Exception as e:
-            logger.error(f"Agentic triage failed: {str(e)}")
-            return {
-                "risk_level": "error",
-                "confidence": 0.0,
-                "rationale": f"Agent error: {str(e)}",
-                "recommendation": "Manual review required."
-            }

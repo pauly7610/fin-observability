@@ -3,6 +3,7 @@ import { useRouter } from 'next/router';
 import { apiRequest } from '../../apiRequest';
 import { AssignIncidentForm, EscalateIncidentButton, CommentIncidentForm } from './IncidentActions';
 import { AuditTrail } from '@/components/layout/AuditTrail';
+import { IncidentApprovalStatus } from '../../components/IncidentApprovalStatus';
 
 interface Incident {
   id: string;
@@ -51,6 +52,10 @@ export default function IncidentDetailPage() {
             <EscalateIncidentButton incidentId={incident.id} onSuccess={() => router.reload()} />
             {/* Comment Action */}
             <CommentIncidentForm incidentId={incident.id} onSuccess={() => router.reload()} />
+            {/* Approval Status */}
+            <div className="mt-6">
+              <IncidentApprovalStatus incidentId={incident.id} />
+            </div>
           </div>
         </div>
       ) : (
