@@ -10,6 +10,7 @@ from ..models import AgentAction, Incident
 
 STAGES = ["triage", "remediate", "compliance", "audit_summary"]
 
+
 class AgenticWorkflowService:
     def __init__(self):
         self.triage = AgenticTriageService()
@@ -17,12 +18,15 @@ class AgenticWorkflowService:
         self.compliance = ComplianceAutomationService()
         self.audit = AuditSummaryService()
 
-    def start_workflow(self, incident: Dict[str, Any], db: Session, submitted_by: Optional[int] = None) -> Dict[str, Any]:
+    def start_workflow(
+        self, incident: Dict[str, Any], db: Session, submitted_by: Optional[int] = None
+    ) -> Dict[str, Any]:
         workflow_id = f"{incident.get('incident_id', str(uuid.uuid4()))}-{int(datetime.utcnow().timestamp())}"
         # Start with triage
         triage_result = self.triage.triage_incident(incident)
         auto_approved = (
-            triage_result.get("risk_level") == "low" and triage_result.get("confidence", 0.0) >= 0.95
+            triage_result.get("risk_level") == "low"
+            and triage_result.get("confidence", 0.0) >= 0.95
         )
         triage_action = AgentAction(
             workflow_id=workflow_id,
@@ -34,7 +38,7 @@ class AgenticWorkflowService:
             auto_approved=auto_approved,
             submitted_by=submitted_by,
             created_at=datetime.utcnow(),
-            meta=incident
+            meta=incident,
         )
         db.add(triage_action)
         db.commit()
@@ -47,17 +51,23 @@ class AgenticWorkflowService:
             "current_stage": "triage",
             "action_id": triage_action.id,
             "status": "pending",
-            "next": "approve triage to proceed"
+            "next": "approve triage to proceed",
         }
 
-    def _auto_advance_workflow(self, workflow_id: str, last_action: AgentAction, db: Session) -> Dict[str, Any]:
+    def _auto_advance_workflow(
+        self, workflow_id: str, last_action: AgentAction, db: Session
+    ) -> Dict[str, Any]:
         # Find next stage
         try:
             idx = STAGES.index(last_action.action)
         except ValueError:
             return {"error": f"Unknown stage '{last_action.action}'."}
         if idx + 1 >= len(STAGES):
-            return {"workflow_id": workflow_id, "status": "complete", "message": "Workflow finished (auto-approved)."}
+            return {
+                "workflow_id": workflow_id,
+                "status": "complete",
+                "message": "Workflow finished (auto-approved).",
+            }
         next_stage = STAGES[idx + 1]
         incident_id = last_action.incident_id
         meta = last_action.meta or {}
@@ -67,11 +77,19 @@ class AgenticWorkflowService:
         elif next_stage == "compliance":
             result = self.compliance.automate_compliance(meta)
         elif next_stage == "audit_summary":
-            logs = [a.meta for a in db.query(AgentAction).filter(AgentAction.workflow_id == workflow_id).order_by(AgentAction.created_at).all()]
+            logs = [
+                a.meta
+                for a in db.query(AgentAction)
+                .filter(AgentAction.workflow_id == workflow_id)
+                .order_by(AgentAction.created_at)
+                .all()
+            ]
             result = self.audit.summarize_audit(logs)
         else:
             return {"error": f"Unknown next stage '{next_stage}'."}
-        auto_approved = (result.get("risk_level") == "low" and result.get("confidence", 0.0) >= 0.95)
+        auto_approved = (
+            result.get("risk_level") == "low" and result.get("confidence", 0.0) >= 0.95
+        )
         next_action = AgentAction(
             workflow_id=workflow_id,
             parent_action_id=last_action.id,
@@ -82,7 +100,7 @@ class AgenticWorkflowService:
             auto_approved=auto_approved,
             submitted_by=None,
             created_at=datetime.utcnow(),
-            meta=meta
+            meta=meta,
         )
         db.add(next_action)
         db.commit()
@@ -95,12 +113,19 @@ class AgenticWorkflowService:
             "current_stage": next_stage,
             "action_id": next_action.id,
             "status": "pending",
-            "next": f"approve {next_stage} to proceed"
+            "next": f"approve {next_stage} to proceed",
         }
 
-    def advance_workflow(self, workflow_id: str, db: Session, approved_by: Optional[int] = None) -> Dict[str, Any]:
+    def advance_workflow(
+        self, workflow_id: str, db: Session, approved_by: Optional[int] = None
+    ) -> Dict[str, Any]:
         # Find the latest approved action for this workflow
-        actions = db.query(AgentAction).filter(AgentAction.workflow_id == workflow_id).order_by(AgentAction.created_at).all()
+        actions = (
+            db.query(AgentAction)
+            .filter(AgentAction.workflow_id == workflow_id)
+            .order_by(AgentAction.created_at)
+            .all()
+        )
         if not actions:
             return {"error": "No actions found for workflow."}
         last_action = actions[-1]
@@ -112,7 +137,11 @@ class AgenticWorkflowService:
         except ValueError:
             return {"error": f"Unknown stage '{last_action.action}'."}
         if idx + 1 >= len(STAGES):
-            return {"workflow_id": workflow_id, "status": "complete", "message": "Workflow finished."}
+            return {
+                "workflow_id": workflow_id,
+                "status": "complete",
+                "message": "Workflow finished.",
+            }
         next_stage = STAGES[idx + 1]
         incident_id = last_action.incident_id
         meta = last_action.meta or {}
@@ -126,7 +155,9 @@ class AgenticWorkflowService:
             result = self.audit.summarize_audit(logs)
         else:
             return {"error": f"Unknown next stage '{next_stage}'."}
-        auto_approved = (result.get("risk_level") == "low" and result.get("confidence", 0.0) >= 0.95)
+        auto_approved = (
+            result.get("risk_level") == "low" and result.get("confidence", 0.0) >= 0.95
+        )
         next_action = AgentAction(
             workflow_id=workflow_id,
             parent_action_id=last_action.id,
@@ -137,7 +168,7 @@ class AgenticWorkflowService:
             auto_approved=auto_approved,
             submitted_by=None,
             created_at=datetime.utcnow(),
-            meta=meta
+            meta=meta,
         )
         db.add(next_action)
         db.commit()
@@ -150,11 +181,16 @@ class AgenticWorkflowService:
             "current_stage": next_stage,
             "action_id": next_action.id,
             "status": "pending",
-            "next": f"approve {next_stage} to proceed"
+            "next": f"approve {next_stage} to proceed",
         }
 
     def get_workflow_status(self, workflow_id: str, db: Session) -> Dict[str, Any]:
-        actions = db.query(AgentAction).filter(AgentAction.workflow_id == workflow_id).order_by(AgentAction.created_at).all()
+        actions = (
+            db.query(AgentAction)
+            .filter(AgentAction.workflow_id == workflow_id)
+            .order_by(AgentAction.created_at)
+            .all()
+        )
         if not actions:
             return {"error": "No actions found for workflow."}
         history = [
@@ -166,7 +202,7 @@ class AgenticWorkflowService:
                 "approved_by": a.approved_by,
                 "approved_at": a.approved_at,
                 "created_at": a.created_at,
-                "parent_action_id": a.parent_action_id
+                "parent_action_id": a.parent_action_id,
             }
             for a in actions
         ]
@@ -174,5 +210,5 @@ class AgenticWorkflowService:
             "workflow_id": workflow_id,
             "history": history,
             "current_stage": actions[-1].action,
-            "current_status": actions[-1].status
+            "current_status": actions[-1].status,
         }

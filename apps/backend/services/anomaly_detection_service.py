@@ -5,12 +5,15 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class AnomalyDetectionService:
     def __init__(self, contamination: float = 0.01):
         self.model = IsolationForest(contamination=contamination, random_state=42)
         self.is_trained = False
 
-    def retrain_from_historical(self, db, source: str = "transactions", feature_keys: list = None) -> dict:
+    def retrain_from_historical(
+        self, db, source: str = "transactions", feature_keys: list = None
+    ) -> dict:
         """
         Retrain the anomaly detection model using historical data from the database.
         NOTE: Ideally, the first step should be to load and train on a curated, labeled historical dataset
@@ -27,7 +30,9 @@ class AnomalyDetectionService:
         # Currently using available transaction/metric data for MVP purposes only.
 
         if source == "transactions":
-            records = db.query(Transaction).filter(Transaction.status == "completed").all()
+            records = (
+                db.query(Transaction).filter(Transaction.status == "completed").all()
+            )
             data = []
             for tx in records:
                 meta = tx.meta or {}
@@ -42,7 +47,9 @@ class AnomalyDetectionService:
             data = []
             for m in records:
                 meta = m.labels or {}
-                features = [m.value] + [v for v in meta.values() if isinstance(v, (int, float))]
+                features = [m.value] + [
+                    v for v in meta.values() if isinstance(v, (int, float))
+                ]
                 data.append(features)
         else:
             return {"success": False, "reason": f"Unknown source: {source}"}

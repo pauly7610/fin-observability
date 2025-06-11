@@ -1,11 +1,10 @@
-from fastapi import FastAPI
+from fastapi import FastAPI, WebSocket, WebSocketDisconnect
 from .routers import approval
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from apps.backend.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from opentelemetry import trace
-from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
@@ -15,13 +14,15 @@ import logging
 import structlog
 from opentelemetry import trace
 
+
 def get_logger(name=None):
     logger = structlog.get_logger(name)
     span = trace.get_current_span()
     ctx = span.get_span_context() if span else None
-    trace_id = format(ctx.trace_id, 'x') if ctx and hasattr(ctx, 'trace_id') else None
-    span_id = format(ctx.span_id, 'x') if ctx and hasattr(ctx, 'span_id') else None
+    trace_id = format(ctx.trace_id, "x") if ctx and hasattr(ctx, "trace_id") else None
+    span_id = format(ctx.span_id, "x") if ctx and hasattr(ctx, "span_id") else None
     return logger.bind(trace_id=trace_id, span_id=span_id)
+
 
 # Configure structlog for JSON output and stdlib compatibility
 structlog.configure(
@@ -41,19 +42,77 @@ logging.basicConfig(level=logging.INFO, format="%(message)s")
 
 # Instrument database for tracing
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
+
 SQLAlchemyInstrumentor().instrument(engine=engine)
 
 # Instrument HTTP clients for tracing
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
+
 RequestsInstrumentor().instrument()
 try:
     from opentelemetry.instrumentation.boto3s3 import Boto3S3Instrumentor
+
     Boto3S3Instrumentor().instrument()
 except ImportError:
     pass  # boto3 S3 instrumentation is optional and only if boto3 is present
 from apps.backend.routers import (
-    agent, ops, ops_trigger, audit, compliance, incidents, transactions, system_metrics, users, compliance_lcr, verification, anomaly, export_metadata
+    agent,
+    ops,
+    ops_trigger,
+    audit,
+    compliance,
+    incidents,
+    transactions,
+    system_metrics,
+    users,
+    compliance_lcr,
+    verification,
+    anomaly,
+    export_metadata,
+    ops_metrics,
 )
+
+
+# --- Incident WebSocket Broadcaster ---
+class IncidentBroadcaster:
+    def __init__(self):
+        self.active_connections: list[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        if websocket in self.active_connections:
+            self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            try:
+                await connection.send_text(message)
+            except Exception:
+                self.disconnect(connection)
+
+
+incident_broadcaster = IncidentBroadcaster()
+
+app = FastAPI()
+
+
+@app.websocket("/ws/incidents")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time incident updates.
+    Clients receive JSON strings with new/updated incidents.
+    """
+    await incident_broadcaster.connect(websocket)
+    try:
+        while True:
+            await websocket.receive_text()  # keepalive
+    except WebSocketDisconnect:
+        incident_broadcaster.disconnect(websocket)
+
+
 from apps.backend.scheduled_exports import schedule_exports
 from apscheduler.schedulers.background import BackgroundScheduler
 from apps.backend.agentic_escalation import escalate_overdue_agent_actions
@@ -98,7 +157,7 @@ anomaly_detected_counter = metrics_meter.create_counter(
 app = FastAPI(
     title="Financial AI Observability Platform",
     description="Backend API for financial services observability and automation",
-    version="0.1.0"
+    version="0.1.0",
 )
 app.include_router(approval.router)
 
@@ -136,6 +195,8 @@ schedule_exports()
 
 # Start agentic escalation job
 scheduler = BackgroundScheduler()
+
+
 def escalation_job():
     db = SessionLocal()
     try:
@@ -144,12 +205,15 @@ def escalation_job():
             print(f"[Agentic Escalation] Auto-escalated {count} overdue agent actions.")
     finally:
         db.close()
-scheduler.add_job(escalation_job, 'interval', hours=1, id='agentic_escalation')
+
+
+scheduler.add_job(escalation_job, "interval", hours=1, id="agentic_escalation")
 scheduler.start()
 
 # Limiter is now created below and imported by routers
 
+
 @app.get("/health")
 @limiter.limit("5/minute")  # Example: 5 requests per minute per IP
 async def health_check(request):
-    return {"status": "healthy"} 
+    return {"status": "healthy"}

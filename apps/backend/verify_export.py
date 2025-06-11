@@ -6,6 +6,7 @@ from cryptography.hazmat.backends import default_backend
 import sys
 import os
 
+
 def verify_hash_chain(csv_file):
     with open(csv_file, "r", encoding="utf-8") as f:
         lines = f.readlines()
@@ -22,6 +23,7 @@ def verify_hash_chain(csv_file):
     print("Hash chain verified.")
     return True
 
+
 def verify_signature(csv_file, pubkey_path=None):
     if pubkey_path is None:
         pubkey_path = os.getenv("EXPORT_SIGNING_PUBKEY", "public_key.pem")
@@ -36,16 +38,16 @@ def verify_signature(csv_file, pubkey_path=None):
             signature,
             last_hash,
             padding.PSS(
-                mgf=padding.MGF1(hashes.SHA256()),
-                salt_length=padding.PSS.MAX_LENGTH
+                mgf=padding.MGF1(hashes.SHA256()), salt_length=padding.PSS.MAX_LENGTH
             ),
-            hashes.SHA256()
+            hashes.SHA256(),
         )
         print("Signature verified.")
         return True
     except Exception as e:
         print(f"Signature verification failed: {e}")
         return False
+
 
 if __name__ == "__main__":
     if len(sys.argv) < 2:

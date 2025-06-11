@@ -11,21 +11,29 @@ from ..database import get_db
 from ..security import require_role
 from datetime import datetime
 
-router = APIRouter(prefix="/agent/ops/trigger", tags=["chatops", "ops", "human-in-the-loop"])
+router = APIRouter(
+    prefix="/agent/ops/trigger", tags=["chatops", "ops", "human-in-the-loop"]
+)
 
 triage_service = AgenticTriageService()
 remediation_service = IncidentRemediationService()
 compliance_service = ComplianceAutomationService()
 audit_service = AuditSummaryService()
 
+
 @router.post("/triage")
 @limiter.limit("3/minute")  # LLM endpoint, strict limit
-async def trigger_triage(request: Request,
+async def trigger_triage(
+    request: Request,
     incident: Dict[str, Any],
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "analyst", "compliance"]))
+    user=Depends(require_role(["admin", "analyst", "compliance"])),
 ):
-    siem.send_syslog_event(f"Ops Trigger: Manual triage triggered for incident {incident.get('incident_id')}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+    siem.send_syslog_event(
+        f"Ops Trigger: Manual triage triggered for incident {incident.get('incident_id')}",
+        host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+        port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    )
     result = triage_service.triage_incident(incident)
     agent_action = AgentActionModel(
         incident_id=incident.get("incident_id", "unknown"),
@@ -34,7 +42,7 @@ async def trigger_triage(request: Request,
         status="pending",
         submitted_by=user.id,
         created_at=datetime.utcnow(),
-        meta=incident
+        meta=incident,
     )
     db.add(agent_action)
     db.commit()
@@ -47,14 +55,20 @@ async def trigger_triage(request: Request,
             response["recommendation"] = result["recommendation"]
     return response
 
+
 @router.post("/remediate")
 @limiter.limit("3/minute")  # LLM endpoint, strict limit
-async def trigger_remediation(request: Request,
+async def trigger_remediation(
+    request: Request,
     incident: Dict[str, Any],
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "analyst", "compliance"]))
+    user=Depends(require_role(["admin", "analyst", "compliance"])),
 ):
-    siem.send_syslog_event(f"Ops Trigger: Manual remediation triggered for incident {incident.get('incident_id')}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+    siem.send_syslog_event(
+        f"Ops Trigger: Manual remediation triggered for incident {incident.get('incident_id')}",
+        host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+        port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    )
     result = remediation_service.remediate_incident(incident)
     agent_action = AgentActionModel(
         incident_id=incident.get("incident_id", "unknown"),
@@ -63,7 +77,7 @@ async def trigger_remediation(request: Request,
         status="pending",
         submitted_by=user.id,
         created_at=datetime.utcnow(),
-        meta=incident
+        meta=incident,
     )
     db.add(agent_action)
     db.commit()
@@ -76,14 +90,20 @@ async def trigger_remediation(request: Request,
             response["recommendation"] = result["recommendation"]
     return response
 
+
 @router.post("/compliance")
 @limiter.limit("3/minute")  # LLM endpoint, strict limit
-async def trigger_compliance(request: Request,
+async def trigger_compliance(
+    request: Request,
     transaction: Dict[str, Any],
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "compliance"]))
+    user=Depends(require_role(["admin", "compliance"])),
 ):
-    siem.send_syslog_event(f"Ops Trigger: Manual compliance triggered for transaction {transaction.get('transaction_id')}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+    siem.send_syslog_event(
+        f"Ops Trigger: Manual compliance triggered for transaction {transaction.get('transaction_id')}",
+        host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+        port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    )
     result = compliance_service.automate_compliance(transaction)
     agent_action = AgentActionModel(
         incident_id=transaction.get("incident_id", "unknown"),
@@ -92,7 +112,7 @@ async def trigger_compliance(request: Request,
         status="pending",
         submitted_by=user.id,
         created_at=datetime.utcnow(),
-        meta=transaction
+        meta=transaction,
     )
     db.add(agent_action)
     db.commit()
@@ -105,13 +125,18 @@ async def trigger_compliance(request: Request,
             response["recommendation"] = result["recommendation"]
     return response
 
+
 @router.post("/audit_summary")
 async def trigger_audit_summary(
     logs: List[Dict[str, Any]],
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "compliance"]))
+    user=Depends(require_role(["admin", "compliance"])),
 ):
-    siem.send_syslog_event(f"Ops Trigger: Manual audit summary triggered", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
+    siem.send_syslog_event(
+        f"Ops Trigger: Manual audit summary triggered",
+        host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+        port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+    )
     result = audit_service.summarize_audit(logs)
     agent_action = AgentActionModel(
         incident_id="audit_summary",
@@ -120,7 +145,7 @@ async def trigger_audit_summary(
         status="pending",
         submitted_by=user.id,
         created_at=datetime.utcnow(),
-        meta={"logs": logs}
+        meta={"logs": logs},
     )
     db.add(agent_action)
     db.commit()

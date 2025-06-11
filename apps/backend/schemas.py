@@ -2,14 +2,17 @@ from pydantic import BaseModel, EmailStr, Field
 from typing import Optional, Dict, Any, List
 from datetime import datetime
 
+
 # User schemas
 class UserBase(BaseModel):
     email: EmailStr
     full_name: str
     role: str
 
+
 class UserCreate(UserBase):
     password: str
+
 
 class User(UserBase):
     id: int
@@ -20,14 +23,17 @@ class User(UserBase):
     class Config:
         from_attributes = True
 
+
 # Transaction schemas
 class TransactionBase(BaseModel):
     amount: float
     currency: str
     meta: Dict[str, Any]
 
+
 class TransactionCreate(TransactionBase):
     pass
+
 
 class Transaction(TransactionBase):
     id: int
@@ -41,6 +47,7 @@ class Transaction(TransactionBase):
     class Config:
         from_attributes = True
 
+
 # Compliance log schemas
 class ComplianceLogBase(BaseModel):
     event_type: str
@@ -49,8 +56,10 @@ class ComplianceLogBase(BaseModel):
     description: str
     meta: Dict[str, Any]
 
+
 class ComplianceLogCreate(ComplianceLogBase):
     pass
+
 
 class ComplianceLog(ComplianceLogBase):
     id: int
@@ -61,14 +70,17 @@ class ComplianceLog(ComplianceLogBase):
     class Config:
         from_attributes = True
 
+
 # System metric schemas
 class SystemMetricBase(BaseModel):
     metric_name: str
     value: float
     labels: Dict[str, str]
 
+
 class SystemMetricCreate(SystemMetricBase):
     pass
+
 
 class SystemMetric(SystemMetricBase):
     id: int
@@ -79,15 +91,27 @@ class SystemMetric(SystemMetricBase):
     class Config:
         from_attributes = True
 
+
 # Incident schemas
 class IncidentBase(BaseModel):
     title: str
     description: str
     severity: str
+    type: str
+    desk: str
+    trader: str
+    priority: int
+    root_cause: Optional[str] = None
+    recommended_action: Optional[str] = None
+    source_event_id: Optional[str] = None
+    detection_method: Optional[str] = None
+    last_event_timestamp: Optional[datetime] = None
     meta: Dict[str, Any]
+
 
 class IncidentCreate(IncidentBase):
     pass
+
 
 class Incident(IncidentBase):
     id: int
@@ -100,6 +124,7 @@ class Incident(IncidentBase):
 
     class Config:
         from_attributes = True
+
 
 # Agent action schemas
 class AgentActionBase(BaseModel):
@@ -126,8 +151,10 @@ class AgentActionBase(BaseModel):
     actor_type: str = None
     is_simulation: bool = False
 
+
 class AgentActionCreate(AgentActionBase):
     submitted_by: int
+
 
 class AgentActionUpdate(BaseModel):
     status: str
@@ -154,6 +181,7 @@ class AgentActionUpdate(BaseModel):
     override_type: str = None
     is_simulation: bool = None
 
+
 class AgentAction(AgentActionBase):
     id: int
     status: str
@@ -177,6 +205,7 @@ class AgentAction(AgentActionBase):
     class Config:
         from_attributes = True
 
+
 # Agent action audit log schemas
 class AgentActionAuditLogBase(BaseModel):
     event_type: str
@@ -194,6 +223,7 @@ class AgentActionAuditLogBase(BaseModel):
     override_type: str = None
     is_simulation: bool = False
 
+
 # Export metadata schemas
 class ExportMetadataBase(BaseModel):
     export_type: str
@@ -210,16 +240,21 @@ class ExportMetadataBase(BaseModel):
     verified_at: datetime = None
     meta: dict = None
 
+
 class ExportMetadataCreate(ExportMetadataBase):
     pass
 
+
 class ExportMetadata(ExportMetadataBase):
     id: int
+
     class Config:
         from_attributes = True
 
+
 class AgentActionAuditLogCreate(AgentActionAuditLogBase):
     agent_action_id: int
+
 
 class AgentActionAuditLog(AgentActionAuditLogBase):
     id: int
@@ -229,14 +264,16 @@ class AgentActionAuditLog(AgentActionAuditLogBase):
     class Config:
         from_attributes = True
 
+
 # Anomaly detection schemas
 class AnomalyDetectionRequest(BaseModel):
     data: List[Dict[str, Any]]
     model_type: str = Field(..., description="Type of anomaly detection model to use")
-    model_config = {'protected_namespaces': ()}
+    model_config = {"protected_namespaces": ()}
     parameters: Optional[Dict[str, Any]] = None
+
 
 class AnomalyDetectionResponse(BaseModel):
     anomalies: List[Dict[str, Any]]
     scores: List[float]
-    model_meta: Dict[str, Any] 
+    model_meta: Dict[str, Any]

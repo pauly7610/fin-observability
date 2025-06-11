@@ -2,17 +2,20 @@
 Alembic migration for WORM (Write Once, Read Many) enforcement on export_metadata table.
 Blocks DELETEs and only allows UPDATEs to delivery_status, verification_status, delivered_at, and verified_at.
 """
+
 from alembic import op
 import sqlalchemy as sa
 
 # revision identifiers, used by Alembic.
-revision = '20250610_worm_export_metadata'
-down_revision = '89dde0c4a8db'
+revision = "20250610_worm_export_metadata"
+down_revision = "89dde0c4a8db"
 branch_labels = None
 depends_on = None
 
+
 def upgrade():
-    op.execute('''
+    op.execute(
+        """
     CREATE OR REPLACE FUNCTION enforce_worm_export_metadata()
     RETURNS trigger AS $$
     BEGIN
@@ -49,10 +52,14 @@ def upgrade():
         BEFORE UPDATE OR DELETE ON export_metadata
         FOR EACH ROW
         EXECUTE FUNCTION enforce_worm_export_metadata();
-    ''')
+    """
+    )
+
 
 def downgrade():
-    op.execute('''
+    op.execute(
+        """
     DROP TRIGGER IF EXISTS export_metadata_worm_enforcer ON export_metadata;
     DROP FUNCTION IF EXISTS enforce_worm_export_metadata();
-    ''')
+    """
+    )

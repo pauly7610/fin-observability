@@ -1,43 +1,13 @@
-import React, { useEffect, useState } from 'react';
-import { DashboardLayout } from '@/components/layout/DashboardLayout';
-import { SystemStatus } from '@/components/layout/SystemStatus';
-import { AuditLogPanel } from '@/components/layout/AuditLogPanel';
-import { apiRequest } from '../apiRequest';
+import { useRouter } from 'next/router';
+import { useEffect } from 'react';
 
-export default function Dashboard() {
-  const [metrics, setMetrics] = useState([]);
-  const [metricsLoading, setMetricsLoading] = useState(true);
-  const [metricsError, setMetricsError] = useState<string | null>(null);
-
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [logsLoading, setLogsLoading] = useState(true);
-  const [logsError, setLogsError] = useState<string | null>(null);
-
+export default function IndexRedirect() {
+  const router = useRouter();
   useEffect(() => {
-    setMetricsLoading(true);
-    apiRequest('/system_metrics/')
-      .then((data) => setMetrics(data))
-      .catch((err) => setMetricsError(err.message))
-      .finally(() => setMetricsLoading(false));
-  }, []);
-
-  useEffect(() => {
-    setLogsLoading(true);
-    apiRequest('/compliance/logs')
-      .then((data) => setAuditLogs(data))
-      .catch((err) => setLogsError(err.message))
-      .finally(() => setLogsLoading(false));
-  }, []);
-
-  // TODO: Replace mockTasks and mockCommands with real data as you build more features
-
-  const mockTasks = [
-    {
-      id: '1',
-      title: 'Investigate CPU spike',
-      status: 'ongoing' as const,
-      owner: 'agent' as const,
-      nextAction: 'Analyzing metrics',
+    router.replace('/incidents');
+  }, [router]);
+  return null;
+}
     },
     {
       id: '2',

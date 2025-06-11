@@ -29,8 +29,7 @@ __pycache__/
 *$py.class
 *.so
 .Python
-.venv/
-venv/
+
 env/
 ENV/
 build/
@@ -68,7 +67,7 @@ db.sqlite3
 **/.env
 **/.env.*
 **/__pycache__/
-**/.venv/
+
 **/dist/
 **/build/
 **/.next/

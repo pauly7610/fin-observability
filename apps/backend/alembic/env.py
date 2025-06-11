@@ -20,17 +20,18 @@ import sys
 import os
 from dotenv import load_dotenv
 import importlib.util
-backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), '..'))
-models_path = os.path.join(backend_dir, 'models.py')
-spec = importlib.util.spec_from_file_location('models', models_path)
+
+backend_dir = os.path.abspath(os.path.join(os.path.dirname(__file__), ".."))
+models_path = os.path.join(backend_dir, "models.py")
+spec = importlib.util.spec_from_file_location("models", models_path)
 models = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(models)
 Base = models.Base
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
+load_dotenv(os.path.join(os.path.dirname(__file__), "..", ".env"))
 target_metadata = Base.metadata
 
 # Set the SQLAlchemy URL from .env
-config.set_main_option('sqlalchemy.url', os.getenv('DATABASE_URL'))
+config.set_main_option("sqlalchemy.url", os.getenv("DATABASE_URL"))
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
@@ -76,9 +77,7 @@ def run_migrations_online() -> None:
     )
 
     with connectable.connect() as connection:
-        context.configure(
-            connection=connection, target_metadata=target_metadata
-        )
+        context.configure(connection=connection, target_metadata=target_metadata)
 
         with context.begin_transaction():
             context.run_migrations()

@@ -12,37 +12,45 @@ from io import StringIO
 import os
 from apps.backend import siem
 from opentelemetry import trace
+
 tracer = trace.get_tracer(__name__)
 
 router = APIRouter(prefix="/users", tags=["users", "export"])
 
+
 @router.get("/export")
 @limiter.limit("15/minute")  # Export endpoint, moderate limit
-async def export_users(request: Request,
+async def export_users(
+    request: Request,
     role: Optional[str] = None,
     is_active: Optional[bool] = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
     format: str = "csv",
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin"]))
+    user=Depends(require_role(["admin"])),
 ):
     """
     Export users as CSV or JSON for audit/review.
     """
-    user_id = getattr(user, 'id', None) if hasattr(user, 'id') else None
+    user_id = getattr(user, "id", None) if hasattr(user, "id") else None
     # Approval workflow integration
     from apps.backend.approval import require_approval
+
     approved, approval_req = require_approval(
         db=db,
         resource_type="user_export",
         resource_id=f"users_{role}_{is_active}_{start}_{end}",
         user_id=user_id,
         reason="Export users for audit/review",
-        meta={"role": role, "is_active": is_active, "start": start, "end": end}
+        meta={"role": role, "is_active": is_active, "start": start, "end": end},
     )
     if not approved:
-        return {"detail": "Export requires approval", "approval_request_id": approval_req.id, "status": approval_req.status.value}
+        return {
+            "detail": "Export requires approval",
+            "approval_request_id": approval_req.id,
+            "status": approval_req.status.value,
+        }
     with tracer.start_as_current_span("export.users") as span:
         span.set_attribute("user.id", user_id)
         span.set_attribute("export.format", format)
@@ -58,9 +66,11 @@ async def export_users(request: Request,
                 query = query.filter(UserModel.is_active == is_active)
             if start:
                 from dateutil.parser import parse
+
                 query = query.filter(UserModel.created_at >= parse(start))
             if end:
                 from dateutil.parser import parse
+
                 query = query.filter(UserModel.created_at <= parse(end))
             users = query.order_by(UserModel.created_at.desc()).all()
             span.set_attribute("export.record_count", len(users))
@@ -80,17 +90,22 @@ async def export_users(request: Request,
                     verification_status="unverified",
                     created_at=datetime.utcnow(),
                     delivered_at=datetime.utcnow(),
-                    meta={"format": "csv"}
+                    meta={"format": "csv"},
                 )
-                return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=users.csv"})
+                return StreamingResponse(
+                    output,
+                    media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=users.csv"},
+                )
             else:
                 siem.send_syslog_event(
                     f"Users exported as JSON, count={len(users)}",
                     host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
-                    port=int(os.getenv("SIEM_SYSLOG_PORT", "514"))
+                    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
                 )
                 from apps.backend.models import ExportMetadata
                 from apps.backend.database import SessionLocal
+
                 session = SessionLocal()
                 try:
                     export_meta = ExportMetadata(
@@ -112,5 +127,6 @@ async def export_users(request: Request,
         except Exception as e:
             span.record_exception(e)
             from opentelemetry.trace.status import Status, StatusCode
+
             span.set_status(Status(StatusCode.ERROR, str(e)))
             raise HTTPException(status_code=500, detail=str(e))

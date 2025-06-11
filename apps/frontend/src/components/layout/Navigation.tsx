@@ -4,8 +4,8 @@ import { useRouter } from 'next/router';
 import { theme } from '@/styles/theme';
 
 const navigationItems = [
-  { name: 'Dashboard', path: '/', icon: '📊' },
   { name: 'Incidents', path: '/incidents', icon: '🚨' },
+  { name: 'Dashboard', path: '/incidents', icon: '📊' }, // Dashboard points to /incidents
   { name: 'Compliance', path: '/compliance', icon: '📋' },
   { name: 'Agentic Workflows', path: '/agentic', icon: '🤖' },
   { name: 'Users', path: '/users', icon: '👤' },

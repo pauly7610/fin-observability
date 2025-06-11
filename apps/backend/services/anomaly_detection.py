@@ -7,17 +7,12 @@ import logging
 
 logger = logging.getLogger(__name__)
 
+
 class AnomalyDetectionService:
     def __init__(self):
         self.models = {
-            "isolation_forest": IsolationForest(
-                contamination=0.1,
-                random_state=42
-            ),
-            "knn": LocalOutlierFactor(
-                n_neighbors=20,
-                contamination=0.1
-            )
+            "isolation_forest": IsolationForest(contamination=0.1, random_state=42),
+            "knn": LocalOutlierFactor(n_neighbors=20, contamination=0.1),
         }
         self.scaler = StandardScaler()
 
@@ -37,16 +32,16 @@ class AnomalyDetectionService:
         self,
         data: List[Dict[str, Any]],
         model_type: str = "isolation_forest",
-        parameters: Dict[str, Any] = None
+        parameters: Dict[str, Any] = None,
     ) -> Tuple[List[bool], List[float], Dict[str, Any]]:
         """
         Detect anomalies in the input data using the specified model.
-        
+
         Args:
             data: List of dictionaries containing the data points
             model_type: Type of model to use ("isolation_forest" or "knn")
             parameters: Optional parameters to override model defaults
-            
+
         Returns:
             Tuple of (anomaly_flags, anomaly_scores, model_meta)
         """
@@ -75,7 +70,9 @@ class AnomalyDetectionService:
                 anomaly_flags = [pred == -1 for pred in predictions]
             else:  # KNN
                 predictions = model.fit_predict(X_scaled)
-                scores = -model.negative_outlier_factor_  # Negative scores for anomalies
+                scores = (
+                    -model.negative_outlier_factor_
+                )  # Negative scores for anomalies
                 anomaly_flags = [pred == -1 for pred in predictions]
 
             # Prepare meta
@@ -83,11 +80,12 @@ class AnomalyDetectionService:
                 "model_type": model_type,
                 "n_samples": len(data),
                 "n_features": X.shape[1],
-                "parameters": model.get_params()
+                "parameters": model.get_params(),
             }
 
             return anomaly_flags, scores.tolist(), model_meta
         except Exception as e:
             from apps.backend.main import get_logger
+
             get_logger(__name__).error("Error in anomaly detection", error=str(e))
             raise

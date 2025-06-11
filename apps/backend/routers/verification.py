@@ -8,12 +8,13 @@ import hashlib
 
 router = APIRouter(prefix="/verification", tags=["verification", "compliance"])
 
+
 @router.post("/verify_export")
 async def verify_export(
     csv_file: UploadFile = File(...),
     hash_file: UploadFile = File(...),
     sig_file: UploadFile = File(...),
-    pubkey_file: UploadFile = File(None)
+    pubkey_file: UploadFile = File(None),
 ):
     """
     Verify hash chain and digital signature of an exported CSV file.
@@ -67,9 +68,9 @@ async def verify_export(
                 last_hash.encode(),
                 padding.PSS(
                     mgf=padding.MGF1(hashes.SHA256()),
-                    salt_length=padding.PSS.MAX_LENGTH
+                    salt_length=padding.PSS.MAX_LENGTH,
                 ),
-                hashes.SHA256()
+                hashes.SHA256(),
             )
             signature_valid = True
         except Exception as e:
@@ -83,11 +84,13 @@ async def verify_export(
                 os.remove(pubkey_path)
         except Exception:
             pass
-        return JSONResponse({
-            "hash_chain_valid": hash_chain_valid,
-            "signature_valid": signature_valid,
-            "last_hash": last_hash,
-            "detail": "Verification complete."
-        })
+        return JSONResponse(
+            {
+                "hash_chain_valid": hash_chain_valid,
+                "signature_valid": signature_valid,
+                "last_hash": last_hash,
+                "detail": "Verification complete.",
+            }
+        )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")

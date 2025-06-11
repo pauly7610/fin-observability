@@ -1,12 +1,41 @@
-from sqlalchemy import Column, Integer, String, Float, DateTime, Boolean, ForeignKey, JSON
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    Float,
+    DateTime,
+    Boolean,
+    ForeignKey,
+    JSON,
+)
 from sqlalchemy.orm import declarative_base, relationship
 from datetime import datetime
 
 Base = declarative_base()
 
+
+class IncidentActivity(Base):
+    __tablename__ = "incident_activities"
+    id = Column(Integer, primary_key=True)
+    incident_id = Column(String, ForeignKey("incidents.incident_id"), index=True)
+    event_type = Column(
+        String, nullable=False
+    )  # comment, status_change, assignment, escalation, etc.
+    user_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    old_value = Column(String, nullable=True)
+    new_value = Column(String, nullable=True)
+    comment = Column(String, nullable=True)
+    meta = Column(JSON, nullable=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    user = relationship("User")
+
+
+Base = declarative_base()
+
+
 class User(Base):
     __tablename__ = "users"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     email = Column(String, unique=True, index=True)
     hashed_password = Column(String)
@@ -16,9 +45,10 @@ class User(Base):
     created_at = Column(DateTime, default=datetime.utcnow)
     last_login = Column(DateTime, nullable=True)
 
+
 class Transaction(Base):
     __tablename__ = "transactions"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     transaction_id = Column(String, unique=True, index=True)
     amount = Column(Float)
@@ -30,9 +60,10 @@ class Transaction(Base):
     anomaly_score = Column(Float, nullable=True)
     anomaly_details = Column(JSON, nullable=True)
 
+
 class ComplianceLog(Base):
     __tablename__ = "compliance_logs"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     event_type = Column(String)  # "transaction", "system", "user_action"
     event_id = Column(String, index=True)
@@ -43,9 +74,10 @@ class ComplianceLog(Base):
     is_resolved = Column(Boolean, default=False)
     resolution_notes = Column(String, nullable=True)
 
+
 class SystemMetric(Base):
     __tablename__ = "system_metrics"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     metric_name = Column(String, index=True)
     value = Column(Float)
@@ -54,29 +86,42 @@ class SystemMetric(Base):
     is_anomaly = Column(Boolean, default=False)
     anomaly_score = Column(Float, nullable=True)
 
+
 class Incident(Base):
     __tablename__ = "incidents"
-    
+
     id = Column(Integer, primary_key=True, index=True)
     incident_id = Column(String, unique=True, index=True)
     title = Column(String)
     description = Column(String)
     severity = Column(String)  # "low", "medium", "high", "critical"
     status = Column(String)  # "open", "investigating", "resolved", "closed"
+    type = Column(String, index=True)  # 'stuck_order', 'missed_trade', 'spike', etc.
+    desk = Column(String, index=True)
+    trader = Column(String, index=True)
+    priority = Column(Integer, index=True)
+    root_cause = Column(String, nullable=True)
+    recommended_action = Column(String, nullable=True)
+    source_event_id = Column(String, nullable=True)
+    detection_method = Column(String, nullable=True)  # 'rule', 'ml', 'manual', etc.
+    last_event_timestamp = Column(DateTime, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     resolved_at = Column(DateTime, nullable=True)
     assigned_to = Column(Integer, ForeignKey("users.id"), nullable=True)
     meta = Column(JSON)
-    
-    assigned_user = relationship("User") 
+
+    assigned_user = relationship("User")
+
 
 class AgentAction(Base):
     __tablename__ = "agent_actions"
 
     id = Column(Integer, primary_key=True, index=True)
     workflow_id = Column(String, index=True)  # groups actions for a workflow/incident
-    parent_action_id = Column(Integer, ForeignKey("agent_actions.id"), nullable=True)  # links to previous action
+    parent_action_id = Column(
+        Integer, ForeignKey("agent_actions.id"), nullable=True
+    )  # links to previous action
     incident_id = Column(String, index=True)
     action = Column(String)
     agent_result = Column(String)
@@ -100,24 +145,31 @@ class AgentAction(Base):
     current_approval_index = Column(Integer, default=0)
 
     # Agentic explainability and attribution fields
-    ai_explanation = Column(String, nullable=True)  # Reasoning or explanation from agent/AI
-    agent_input = Column(JSON, nullable=True)       # Input provided to agent/AI
-    agent_output = Column(JSON, nullable=True)      # Full output from agent/AI
-    agent_version = Column(String, nullable=True)   # Version of agent/AI/model
-    actor_type = Column(String, nullable=True)      # 'human', 'agent', 'system'
+    ai_explanation = Column(
+        String, nullable=True
+    )  # Reasoning or explanation from agent/AI
+    agent_input = Column(JSON, nullable=True)  # Input provided to agent/AI
+    agent_output = Column(JSON, nullable=True)  # Full output from agent/AI
+    agent_version = Column(String, nullable=True)  # Version of agent/AI/model
+    actor_type = Column(String, nullable=True)  # 'human', 'agent', 'system'
     is_simulation = Column(Boolean, default=False)  # True if this was a simulation/test
 
     submitter = relationship("User", foreign_keys=[submitted_by])
     approver = relationship("User", foreign_keys=[approved_by])
-    parent_action = relationship("AgentAction", remote_side=[id], foreign_keys=[parent_action_id])
+    parent_action = relationship(
+        "AgentAction", remote_side=[id], foreign_keys=[parent_action_id]
+    )
     assignee = relationship("User", foreign_keys=[assigned_to])
+
 
 class AgentActionAuditLog(Base):
     __tablename__ = "agent_action_audit_logs"
     id = Column(Integer, primary_key=True, index=True)
     agent_action_id = Column(Integer, ForeignKey("agent_actions.id"), index=True)
     timestamp = Column(DateTime, default=datetime.utcnow)
-    event_type = Column(String)  # created, approved, rejected, assigned, commented, escalated, etc.
+    event_type = Column(
+        String
+    )  # created, approved, rejected, assigned, commented, escalated, etc.
     from_status = Column(String, nullable=True)
     to_status = Column(String, nullable=True)
     operator_id = Column(Integer, ForeignKey("users.id"), nullable=True)
@@ -129,10 +181,13 @@ class AgentActionAuditLog(Base):
     agent_output = Column(JSON, nullable=True)
     agent_version = Column(String, nullable=True)
     actor_type = Column(String, nullable=True)
-    override_type = Column(String, nullable=True)  # e.g., 'ai_override', 'manual_override', etc.
+    override_type = Column(
+        String, nullable=True
+    )  # e.g., 'ai_override', 'manual_override', etc.
     is_simulation = Column(Boolean, default=False)
     operator = relationship("User", foreign_keys=[operator_id])
     agent_action = relationship("AgentAction", foreign_keys=[agent_action_id])
+
 
 class ExportMetadata(Base):
     __tablename__ = "export_metadata"
@@ -145,7 +200,9 @@ class ExportMetadata(Base):
     delivered_to = Column(String)  # email or S3 path
     delivery_method = Column(String)  # email, s3, etc.
     delivery_status = Column(String, default="pending")  # pending, delivered, failed
-    verification_status = Column(String, default="unverified")  # unverified, verified, tampered, failed
+    verification_status = Column(
+        String, default="unverified"
+    )  # unverified, verified, tampered, failed
     created_at = Column(DateTime, default=datetime.utcnow)
     delivered_at = Column(DateTime, nullable=True)
     verified_at = Column(DateTime, nullable=True)

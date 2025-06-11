@@ -10,13 +10,22 @@ import csv
 from fastapi.responses import StreamingResponse
 from io import StringIO
 from opentelemetry import trace
+
 tracer = trace.get_tracer(__name__)
+
+import os
+
+# WARNING: All endpoints in this router are now feature-flagged or admin-only for MVP velocity.
+# Set AUDIT_FEATURE_ENABLED=True in env to enable, or ensure only admin can access.
+AUDIT_FEATURE_ENABLED = os.getenv("AUDIT_FEATURE_ENABLED", "false").lower() == "true"
 
 router = APIRouter(prefix="/audit", tags=["audit", "export"])
 
+
 @router.get("/actions", response_model=List[dict])
 @limiter.limit("30/minute")  # Listing endpoint, higher limit
-async def list_agent_actions(request: Request,
+async def list_agent_actions(
+    request: Request,
     status: Optional[str] = None,
     action: Optional[str] = None,
     submitted_by: Optional[int] = None,
@@ -24,13 +33,18 @@ async def list_agent_actions(request: Request,
     start: Optional[datetime] = None,
     end: Optional[datetime] = None,
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "compliance"]))
+    user=Depends(require_role(["admin"])),  # Admin-only for MVP
 ):
     """
     List agent actions with rich filtering for audit/review.
+    Feature-flagged/admin-only for MVP.
     """
+    if not AUDIT_FEATURE_ENABLED:
+        raise HTTPException(
+            status_code=403, detail="Audit endpoints are disabled for MVP velocity."
+        )
     with tracer.start_as_current_span("audit.list_agent_actions") as span:
-        span.set_attribute("user.id", getattr(user, 'id', None))
+        span.set_attribute("user.id", getattr(user, "id", None))
         span.set_attribute("status", status)
         span.set_attribute("action", action)
         span.set_attribute("submitted_by", submitted_by)
@@ -54,21 +68,24 @@ async def list_agent_actions(request: Request,
             actions = query.order_by(AgentActionModel.created_at.desc()).all()
             span.set_attribute("results.count", len(actions))
             siem.send_syslog_event(
-    event="Agent actions listed",
-    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
-    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
-    extra={"user": str(user.get('id') if hasattr(user, 'id') else user)}
-)
+                event="Agent actions listed",
+                host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+                port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+                extra={"user": str(user.get("id") if hasattr(user, "id") else user)},
+            )
             return [a.__dict__ for a in actions]
         except Exception as e:
             span.record_exception(e)
             from opentelemetry.trace.status import Status, StatusCode
+
             span.set_status(Status(StatusCode.ERROR, str(e)))
             raise
 
+
 @router.get("/actions/export")
 @limiter.limit("15/minute")  # Export endpoint, moderate limit
-async def export_agent_actions(request: Request,
+async def export_agent_actions(
+    request: Request,
     status: Optional[str] = None,
     action: Optional[str] = None,
     submitted_by: Optional[int] = None,
@@ -77,12 +94,17 @@ async def export_agent_actions(request: Request,
     end: Optional[datetime] = None,
     format: str = "csv",
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "compliance"]))
+    user=Depends(require_role(["admin"])),  # Admin-only for MVP
 ):
     """
     Export agent actions as CSV or JSON for audit/review. SIEM event and digital signature included.
+    Feature-flagged/admin-only for MVP.
     """
-    user_id = getattr(user, 'id', None) if hasattr(user, 'id') else None
+    if not AUDIT_FEATURE_ENABLED:
+        raise HTTPException(
+            status_code=403, detail="Audit endpoints are disabled for MVP velocity."
+        )
+    user_id = getattr(user, "id", None) if hasattr(user, "id") else None
     with tracer.start_as_current_span("export.agent_actions") as span:
         span.set_attribute("user.id", user_id)
         span.set_attribute("export.format", format)
@@ -118,22 +140,39 @@ async def export_agent_actions(request: Request,
                 output.seek(0)
                 # Hash chain and sign for manual export
                 from apps.backend.scheduled_exports import hash_chain_csv
+
                 last_hash = hash_chain_csv(output.getvalue())
                 signature = crypto_utils.sign_data(last_hash.encode())
                 span.set_attribute("export.hash", last_hash)
-                span.set_attribute("export.signature", signature.hex() if hasattr(signature, 'hex') else str(signature))
-                siem.send_syslog_event(f"Agent actions manually exported, hash: {last_hash}", host=os.getenv("SIEM_SYSLOG_HOST", "localhost"), port=int(os.getenv("SIEM_SYSLOG_PORT", "514")))
-                return StreamingResponse(output, media_type="text/csv", headers={"Content-Disposition": "attachment; filename=agent_actions.csv"})
+                span.set_attribute(
+                    "export.signature",
+                    signature.hex() if hasattr(signature, "hex") else str(signature),
+                )
+                siem.send_syslog_event(
+                    f"Agent actions manually exported, hash: {last_hash}",
+                    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+                    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+                )
+                return StreamingResponse(
+                    output,
+                    media_type="text/csv",
+                    headers={
+                        "Content-Disposition": "attachment; filename=agent_actions.csv"
+                    },
+                )
             else:
                 siem.send_syslog_event(
-    event="Agent actions manually exported (JSON)",
-    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
-    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
-    extra={"user": str(user.get('id') if hasattr(user, 'id') else user)}
-)
+                    event="Agent actions manually exported (JSON)",
+                    host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+                    port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+                    extra={
+                        "user": str(user.get("id") if hasattr(user, "id") else user)
+                    },
+                )
                 return [a.__dict__ for a in actions]
         except Exception as e:
             span.record_exception(e)
             from opentelemetry.trace.status import Status, StatusCode
+
             span.set_status(Status(StatusCode.ERROR, str(e)))
             raise

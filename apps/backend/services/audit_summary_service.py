@@ -1,7 +1,6 @@
 from langchain_openai import ChatOpenAI
 from pydantic import BaseModel
 from typing import Any
-from langgraph.prebuilt import create_react_agent
 from langgraph.graph import StateGraph
 from langchain_core.tools import tool
 from typing import Dict, Any, List
@@ -11,6 +10,7 @@ from opentelemetry import trace
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
+
 @tool
 def summarize_audit_logs(logs: str) -> dict:
     """Summarize a list of audit log entries, highlighting key events and anomalies, with risk, confidence, rationale, and recommendation."""
@@ -19,22 +19,23 @@ def summarize_audit_logs(logs: str) -> dict:
             "risk_level": "high",
             "confidence": 0.98,
             "rationale": "Anomalies or errors detected in audit logs.",
-            "recommendation": "Immediate review recommended."
+            "recommendation": "Immediate review recommended.",
         }
     elif "login" in logs.lower() and "failed" in logs.lower():
         return {
             "risk_level": "medium",
             "confidence": 0.95,
             "rationale": "Multiple failed logins detected.",
-            "recommendation": "Possible brute-force attempt. Investigate user accounts."
+            "recommendation": "Possible brute-force attempt. Investigate user accounts.",
         }
     else:
         return {
             "risk_level": "low",
             "confidence": 0.99,
             "rationale": "No critical events detected in audit logs.",
-            "recommendation": "Log for record-keeping. No immediate action."
+            "recommendation": "Log for record-keeping. No immediate action.",
         }
+
 
 @tool
 def recommend_audit_action(summary: str) -> dict:
@@ -44,43 +45,37 @@ def recommend_audit_action(summary: str) -> dict:
             "risk_level": "high",
             "confidence": 0.97,
             "rationale": "Escalation required due to anomalies/errors.",
-            "recommendation": "Escalate to compliance and security teams."
+            "recommendation": "Escalate to compliance and security teams.",
         }
     elif "failed login" in summary:
         return {
             "risk_level": "medium",
             "confidence": 0.93,
             "rationale": "Potential brute-force attack detected.",
-            "recommendation": "Initiate user account lockout and notify admin."
+            "recommendation": "Initiate user account lockout and notify admin.",
         }
     else:
         return {
             "risk_level": "low",
             "confidence": 0.99,
             "rationale": "No immediate action required.",
-            "recommendation": "Log for record-keeping."
+            "recommendation": "Log for record-keeping.",
         }
 
-class AuditSummaryService:
-    def __init__(self):
-        self.llm = ChatOpenAI(temperature=0)
-        self.tools = [summarize_audit_logs, recommend_audit_action]
-        self.agent = create_react_agent(self.llm, self.tools)
-        from pydantic import BaseModel
 
 class AuditSummaryService:
     def __init__(self):
         self.llm = ChatOpenAI(temperature=0)
         self.tools = [summarize_audit_logs, recommend_audit_action]
-        self.agent = create_react_agent(self.llm, self.tools)
-        class AuditSummaryState(BaseModel):
-            input: str
-            output: Any = None
-        workflow = StateGraph(AuditSummaryState)
-        workflow.add_node("agent", self.agent)
-        workflow.set_entry_point("agent")
-        workflow.set_finish_point("agent")
-        self.workflow = workflow.compile()
+        # Removed unsupported create_react_agent due to missing function in current langgraph version.
+        from pydantic import BaseModel
+
+
+class AuditSummaryService:
+    def __init__(self):
+        self.llm = ChatOpenAI(temperature=0)
+        self.tools = [summarize_audit_logs, recommend_audit_action]
+        # Removed unsupported create_react_agent and workflow setup due to missing function in current langgraph version.
 
     def summarize_audit(self, logs: List[Dict[str, Any]], user_id: str = None) -> dict:
         # Convert logs to a string summary for the agent
@@ -106,7 +101,7 @@ class AuditSummaryService:
                         "risk_level": "unknown",
                         "confidence": 0.0,
                         "rationale": "Agent returned unstructured output.",
-                        "recommendation": output
+                        "recommendation": output,
                     }
             except Exception as e:
                 span.record_exception(e)
@@ -115,5 +110,5 @@ class AuditSummaryService:
                     "risk_level": "error",
                     "confidence": 0.0,
                     "rationale": f"Agent error: {str(e)}",
-                    "recommendation": "Manual review required."
+                    "recommendation": "Manual review required.",
                 }
