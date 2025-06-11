@@ -27,6 +27,18 @@ This platform directly addresses increasing regulatory scrutiny, cost pressures,
 - **TAM:** $2.1B (Financial Services IT Monitoring)
 - **SAM:** $680M (AI-powered observability for FS)
 - **Growth Rate:** 23% CAGR (2024–2028)
+- ITRS serves 9 of the top 10 global investment banks, validating strong demand for advanced observability and automation solutions among the world's largest financial institutions.
+
+## Market Validation
+
+- The global AI in observability market is projected to grow from $1.4B in 2023 to $10.7B by 2033 (22.5% CAGR), with BFSI (banking, financial services, insurance) representing over 21% of the market share.
+- Observability investments in BFSI are driven by cloud adoption, regulatory pressure, and the need for uninterrupted digital services.
+
+### Adoption Drivers
+- Migration to cloud and multi-cloud environments, driving complexity and the need for unified observability
+- Increasing regulatory scrutiny and the need for robust compliance monitoring and auditability
+- High cost of downtime: outages can cost financial institutions up to $2.2M per hour
+- Demand for AI-driven automation in troubleshooting, root cause analysis, and remediation
 
 ### Competitive Landscape
 | Type                | Key Players                       | Weaknesses We Exploit                          |
@@ -34,6 +46,14 @@ This platform directly addresses increasing regulatory scrutiny, cost pressures,
 | Generalists         | Splunk, Dynatrace, New Relic      | No financial domain depth                      |
 | FS Specialists      | Trading Technologies, Fidessa     | Minimal AI/automation capabilities             |
 | New Entrants        | Datadog, Elastic                  | Expanding in FS, but lacking compliance depth  |
+| AI Observability    | Fiddler AI, InsightFinder         | Lack of explicit financial compliance, agentic AI, and real-time data correction |
+
+**Differentiation:** Deep integration with agentic AI for incident triage, explicit financial compliance workflows, and real-time data correction.
+
+### Market Validation Evidence
+- 41% of financial institutions cite AI adoption as a primary driver for observability investments
+- Median ROI for observability in financial services is 4x, with some organizations reporting $5M+ in annual value
+- Automation of compliance monitoring can reduce operational costs and improve accuracy at scale
 
 **ITRS Advantage:** Geneos + AI + domain credibility = high-trust, high-impact platform
 
@@ -74,6 +94,29 @@ Tier-1 trading operations teams struggle with:
 **Tertiary:** Chief Compliance Officer  
 - Buried in audit requests and documentation  
 - Wants defensible, automated evidence with zero surprises
+
+---
+
+## User Research
+
+### Target Users
+- Financial institutions (banks, brokerages, fintechs) with significant trading operations
+- Compliance and risk officers responsible for regulatory reporting and audit trails
+- Data engineering and operations teams maintaining trading data pipelines
+- Product and technology leaders seeking to modernize and de-risk financial platforms
+
+### User Needs & Pain Points
+- Real-time detection and correction of data quality issues in trading systems
+- Automated compliance monitoring to meet evolving regulatory requirements (e.g., SEC 17a-4, FINRA 4511)
+- Explainability and transparency in AI-driven decision-making to satisfy auditors and regulators
+- Reduction in manual effort for audit trail generation and incident remediation
+- Integration with existing observability and monitoring tools (e.g., OpenTelemetry, ITRS Geneos)
+
+### User Quotes & Insights (Synthesized)
+> “We need to catch data issues before they hit downstream systems—manual reconciliation is too slow and costly.”  
+> “Regulators are asking for more detailed, immutable audit trails, but our current systems can’t keep up.”  
+> “We want to leverage AI for compliance, but only if we can explain and trust the outputs.”  
+> “Tool sprawl is a headache—consolidation and integration are top priorities.”
 
 ---
 
@@ -202,6 +245,32 @@ Tier-1 trading operations teams struggle with:
 ---
 
 ## Go-To-Market Strategy
+
+### Positioning
+
+> “The first AI-powered observability platform purpose-built for financial services—bridging compliance, data quality, and real-time operational reliability.”
+
+### Core Value Propositions
+- Proactive anomaly detection and automated data correction for trading systems
+- Immutable, regulator-ready audit trails and compliance workflows
+- Agentic AI for incident triage and remediation, reducing mean time to resolution (MTTR)
+- Seamless integration with existing observability stacks (OpenTelemetry, ITRS Geneos, Kafka)
+
+### Ideal Customer Profile (ICP)
+
+- Tier-1 investment banks: ITRS currently works with 9 of the top 10 global investment banks, demonstrating major demand and credibility at the highest level of financial services.
+- Mid-to-large financial institutions with complex trading environments and stringent compliance needs
+- Fintechs scaling rapidly and facing new regulatory requirements
+
+### Channels
+- Direct sales to enterprise financial institutions
+- Partnerships with compliance solution providers and major observability vendors
+- Industry events, webinars, and thought leadership targeting compliance and technology leaders
+
+### Land-and-Expand Tactics
+- Start with a proof-of-value project focused on a critical trading system or compliance workflow
+- Demonstrate rapid ROI through reduced incidents, faster audits, and cost savings
+- Expand to additional business units or regulatory domains
 
 ### Phases
 
