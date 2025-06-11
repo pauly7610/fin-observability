@@ -1,7 +1,7 @@
 # Backend Architecture Overview
 
 ## System Overview
-The backend is a modular, compliance-grade system for financial observability, agentic workflows, and export auditability. It is built with FastAPI, SQLAlchemy, Alembic, and Postgres, and is designed for extensibility and security.
+The backend is a modular, trading operations automation platform for real-time financial observability, agentic workflows, and export auditability. It is built with FastAPI, SQLAlchemy, Alembic, and Postgres, and is designed for extensibility, security, and high-frequency trading desk support.
 
 ---
 

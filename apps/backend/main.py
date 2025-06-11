@@ -1,5 +1,5 @@
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect
-from .routers import approval
+from apps.backend.routers import approval
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from apps.backend.rate_limit import limiter
@@ -9,6 +9,7 @@ from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
+from apps.backend.broadcast import incident_broadcaster
 from apps.backend.database import engine, Base
 import logging
 import structlog
@@ -94,7 +95,7 @@ class IncidentBroadcaster:
                 self.disconnect(connection)
 
 
-incident_broadcaster = IncidentBroadcaster()
+
 
 app = FastAPI()
 
@@ -162,7 +163,8 @@ app = FastAPI(
 app.include_router(approval.router)
 
 app.state.limiter = limiter
-app.add_exception_handler(RateLimitExceeded, limiter._rate_limit_exceeded_handler)
+from slowapi import _rate_limit_exceeded_handler
+app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS
 app.add_middleware(
@@ -188,6 +190,7 @@ app.include_router(compliance_lcr.router)
 app.include_router(verification.router)
 
 # Instrument FastAPI with OpenTelemetry
+from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 FastAPIInstrumentor.instrument_app(app)
 
 # Start scheduled exports

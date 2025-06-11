@@ -6,29 +6,39 @@
 > - If you need to run legacy agentic ops, use a separate Python environment with the old dependencies.
 
 ## Overview
-This backend powers the compliance, auditability, and agentic workflows for the Fin Observability platform. It is built with FastAPI, SQLAlchemy, and Postgres, and is designed for financial services and compliance-critical environments.
+This backend powers the trading operations automation, incident triage, remediation, and agentic workflows for the Fin Observability platform. Built with FastAPI, SQLAlchemy, and Postgres, it is designed for real-time trading operations, trading desk support, and financial automation, with compliance and auditability as supporting features.
 
 ---
 
 ## Features
 
-### 1. Agentic Workflows
-- **Multi-party, role-based, and sequential approval** for actions
-- **Automated escalation** of overdue items
-- **Assignment, commenting, and audit logging** for all agent actions
-- **Full agentic explainability**: All agent/AI actions log input, output, version, explanation, actor type, and simulation/test mode
+### 1. Trading Ops AI Automation
+- **Incident triage and remediation** for trading desk operations
+- **Automated trading workflow approvals and escalations**
+- **Assignment, commenting, and audit logging** for all trading ops actions
+- **Agentic explainability**: All agent/AI actions log input, output, version, explanation, actor type, and simulation/test mode
 - **Override tracking**: Human overrides of agentic recommendations are explicitly logged
 
-### 2. Export, Compliance, and Audit
+### 2. Export, Compliance, and Audit (Supporting)
 - **ExportMetadata**: Every export (manual or scheduled) is tracked with hash, signature, delivery, and verification status
 - **Batch verification** and **re-delivery** endpoints
 - **Audit logs**: Every significant event is logged in `AgentActionAuditLog` with full context and agentic fields
 - **SIEM/syslog integration** for real-time monitoring
 
-### 3. Security & Compliance
+### 3. Security & Compliance (Supporting)
 - **RBAC** enforced on all sensitive endpoints
 - **Cryptographic hash chain** and digital signatures for exports
 - **Environment-variable driven secrets** (see `.env`)
+
+---
+
+## Trading Operations Use Cases
+- **Incident Management:** Automated detection, triage, and remediation of trading incidents (e.g., trade breaks, failed settlements, system outages).
+- **Ops Approvals:** Multi-party, role-based approval workflows for trading actions and escalations.
+- **Desk Workflow Automation:** Automate trading desk tasks, escalate overdue items, and track all actions for audit and transparency.
+- **Real-time Monitoring:** SIEM/syslog integration for live trading event monitoring and alerting.
+
+Compliance and auditability are fully supported, but the platform's core is trading ops automation and agentic operational intelligence.
 
 ---
 

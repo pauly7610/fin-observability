@@ -1,6 +1,6 @@
 # Backend API Reference
 
-This document provides a concise reference for the main backend API endpoints, request/response formats, and authentication required to wire up the frontend. For full details and live testing, see the `/docs` (Swagger UI) endpoint on your running backend.
+This document provides a concise reference for the main backend API endpoints powering trading operations automation, incident triage, remediation, and agentic workflows. Compliance and audit endpoints are fully supported but secondary. For full details and live testing, see the `/docs` (Swagger UI) endpoint on your running backend.
 
 ---
 

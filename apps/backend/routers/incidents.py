@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request, Query
 from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -14,7 +14,7 @@ from apps.backend import siem, crypto_utils
 from apps.backend.scheduled_exports import hash_chain_csv
 from opentelemetry import trace
 import json
-from apps.backend.main import incident_broadcaster
+from apps.backend.broadcast import incident_broadcaster
 tracer = trace.get_tracer(__name__)
 
 router = APIRouter(prefix="/incidents", tags=["incidents", "export"])

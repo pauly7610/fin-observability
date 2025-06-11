@@ -38,6 +38,11 @@ dist/
 downloads/
 eggs/
 .eggs/
+
+# === OpenAPI schema and helper scripts ===
+openapi.json
+openapi.yaml
+export_openapi_yaml.py
 lib/
 lib64/
 parts/

@@ -1,5 +1,15 @@
 # Fin Observability Frontend
 
+## Overview
+This frontend powers the trading operations AI automation platform for the Fin Observability system. It provides dashboards and workflows for trading incident management, agentic triage, remediation, approvals, and trading desk automation. Compliance and audit trail features are fully supported but are not the primary focus.
+
+### Key Features
+- **Trading Ops Dashboard:** Real-time incident monitoring, triage, and remediation for trading desks.
+- **Agentic Workflows:** Surfaces AI-driven recommendations, explainability, and escalation actions.
+- **Approval Flows:** Multi-party, role-based approvals for sensitive trading operations.
+- **Audit & Compliance:** Full audit trail for every action, with detailed history and SIEM integration.
+- **Modern UI/UX:** Built with React/Next.js, Tailwind CSS, and modular, accessible components.
+
 ## Audit Trail Component
 
 ### Overview
