@@ -1,5 +1,33 @@
 # Fin Observability Backend
 
+## 🚨 How to Start the Backend (Avoid Import Errors)
+
+**To avoid `ModuleNotFoundError: No module named 'apps'`, always start the backend from the project root, NOT from the `apps/backend` directory.**
+
+**Correct way:**
+
+```bash
+uvicorn apps.backend.main:app --reload
+```
+
+Run this command from your project root directory:
+
+```
+c:\Users\PaulC\Downloads\development\fin-observability
+```
+
+**Why?**
+- The backend uses imports like `from apps.backend.routers import ...`.
+- If you start from `apps/backend`, Python cannot find the `apps` package.
+- Starting from the root ensures the `apps` package is discoverable.
+
+**If you run from the wrong directory, you'll see:**
+```
+ModuleNotFoundError: No module named 'apps'
+```
+
+---
+
 > **⚠️ NOTE: This backend uses the new LangChain 0.3.x+ ecosystem (langchain-core, langchain-community, langchain-openai, etc.).**
 > - All code and dependencies must be compatible with LangChain 0.3.x+.
 > - Legacy LangChain code (0.2.x and below) will not work and must be refactored.

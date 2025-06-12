@@ -12,6 +12,8 @@ export async function apiRequest<T = any>(
     credentials: 'include', // send cookies for auth if needed
     headers: {
       'Content-Type': 'application/json',
+      'x-user-email': 'dev@local', // TODO: replace with real user or env var in production
+      'x-user-role': 'admin',      // TODO: replace with real role or env var in production
       ...(options.headers || {}),
     },
     ...options,
