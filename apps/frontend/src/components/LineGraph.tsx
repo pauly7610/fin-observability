@@ -1,7 +1,7 @@
 'use client';
 
 import { Line, LineChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend, CartesianGrid } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface LineGraphProps {
     data: any[]; // Expects data in the format [{ name: 'Jan', value: 1200 }, ...]

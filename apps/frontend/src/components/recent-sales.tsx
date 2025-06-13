@@ -3,8 +3,8 @@ import {
     Avatar,
     AvatarFallback,
     AvatarImage,
-  } from "@/src/components/ui/avatar"
-  import { Card, CardHeader, CardTitle, CardContent, CardDescription } from "@/src/components/ui/card";
+  } from '@/components/ui/avatar'
+  import { Card, CardHeader, CardTitle, CardContent, CardDescription } from '@/components/ui/card';
   
   // Using your transaction data shape for a more relevant example
   interface Transaction {

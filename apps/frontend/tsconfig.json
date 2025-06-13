@@ -19,18 +19,14 @@
         "name": "next"
       }
     ],
-    // --- THIS IS THE CRITICAL PART ---
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./*"]
-    }
-    // Note: Your screenshot shows paths like `apps/frontend/src/components`.
-    // If your code is inside a `src` directory, use this instead:
-    // "baseUrl": ".",
-    // "paths": {
-    //   "@/*": ["./src/*"]
-    // }
-    // --- END CRITICAL PART ---
+      "@/components/*": ["src/components/*"],
+      "@/lib/*": ["lib/*"],
+      "@/app/*": ["app/*"],
+      "@/*": ["src/*"]
+    },
+    "types": ["node"]
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],
   "exclude": ["node_modules"]

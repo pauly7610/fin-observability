@@ -1,7 +1,7 @@
 'use client';
 
 import { Bar, BarChart, ResponsiveContainer, XAxis, YAxis, Tooltip, Legend } from 'recharts';
-import { Card, CardContent, CardHeader, CardTitle } from '@/src/components/ui/card';
+import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 
 interface BarGraphProps {
     data: any[]; // Expects data in the format [{ name: 'Jan', total: 1200 }, ...]

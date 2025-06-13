@@ -5,8 +5,8 @@ import {
     TableHead,
     TableHeader,
     TableRow,
-  } from "@/src/components/ui/table"
-  import { Card, CardHeader, CardTitle, CardContent } from "@/src/components/ui/card";
+  } from "@/components/ui/table"
+  import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
   
   // Assuming your transaction data has this shape
   interface Transaction {

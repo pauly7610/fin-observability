@@ -1,7 +1,7 @@
 'use client'; // Keep this as it uses client-side hooks
 
-import { Button } from "@/src/components/ui/button";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/src/components/ui/select";
+import { Button } from '@/components/ui/button';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 
 interface FiltersProps {
   onFilterChange: (filters: { status?: string; type?: string }) => void;

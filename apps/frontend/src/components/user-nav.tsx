@@ -1,7 +1,7 @@
 // NOTE: We don't have authentication, so this is just a placeholder UI
 // You would need to add DropdownMenu components from shadcn if you want the menu
 import { Avatar, AvatarFallback, AvatarImage } from "../components/ui/avatar"
-import { Button } from "@/src/components/ui/button"
+import { Button } from '@/components/ui/button'
 
 export function UserNav() {
   return (

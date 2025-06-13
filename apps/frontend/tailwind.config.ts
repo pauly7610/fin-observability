@@ -6,9 +6,15 @@ const config = {
     './pages/**/*.{ts,tsx}',
     './components/**/*.{ts,tsx}',
     './app/**/*.{ts,tsx}',
+    './app/**/*.{js,ts,jsx,tsx}',
     './src/**/*.{ts,tsx}',
-	],
-  prefix: "",
+    './lib/**/*.{ts,tsx}',
+    './utils/**/*.{ts,tsx}',
+    './hooks/**/*.{ts,tsx}',
+    './styles/**/*.{ts,tsx}',
+    './types/**/*.{ts,tsx}',
+    './constants/**/*.{ts,tsx}',
+  ],
   theme: {
     container: {
       center: true,
