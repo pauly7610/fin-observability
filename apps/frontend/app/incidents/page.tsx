@@ -97,7 +97,7 @@ export default function IncidentsPage() {
   };
 
   return (
-    <div className="bg-red-500 text-white p-4">
+    <>
       <div className="bg-white rounded-lg shadow p-4 border border-gray-200">
         <div className="flex h-16 items-center px-4">
           <MainNav className="mx-6" />
@@ -163,6 +163,6 @@ export default function IncidentsPage() {
           </TabsContent>
         </Tabs>
       </div>
-    </div>
+    </>
   );
 }
