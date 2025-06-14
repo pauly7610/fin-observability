@@ -23,6 +23,7 @@
     "node": ">=20.0.0"
   },
   "dependencies": {
-    "@radix-ui/react-avatar": "^1.1.10"
+    "@radix-ui/react-avatar": "^1.1.10",
+    "@tanstack/react-query": "^5.80.7"
   }
 }

@@ -24,7 +24,8 @@
       "@/components/*": ["src/components/*"],
       "@/lib/*": ["lib/*"],
       "@/app/*": ["app/*"],
-      "@/*": ["src/*"]
+      "@/*": ["src/*"],
+      "@/hooks/*": ["src/hooks/*"]
     },
     "types": ["node"]
   },
