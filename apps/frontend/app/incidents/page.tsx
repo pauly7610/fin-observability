@@ -4,8 +4,14 @@ import { AIAgentActivity } from "@/components/AIAgentActivity"
 import { AlertsPanel } from "@/components/AlertsPanel"
 import { ComplianceStatus } from "@/components/ComplianceStatus"
 import { SystemHealth } from "@/components/SystemHealth"
+import { useMockScenarios } from '@/hooks/useMockScenarios';
+import { useMockAuditTrail } from '@/hooks/useMockAuditTrail';
+import React from 'react';
 
 export default function DashboardPage() {
+  const { data: scenarios, isLoading: loadingScenarios } = useMockScenarios();
+  const { data: auditTrail, isLoading: loadingAudit } = useMockAuditTrail();
+
   return (
     <Tabs defaultValue="overview" className="w-full">
       <TabsList>

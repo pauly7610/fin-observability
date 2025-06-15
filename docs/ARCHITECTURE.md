@@ -133,3 +133,7 @@ graph TD
 
 - Maintainers: Product Manager / Engineering Lead
 - Contribution guidelines in CONTRIBUTING.md
+
+---
+
+[See PRD.md for detailed feature demonstrations and business value articulation.]

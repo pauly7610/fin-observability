@@ -14,7 +14,7 @@ from apps.backend.database import engine, Base
 import logging
 import structlog
 from opentelemetry import trace
-from datetime import datetime
+from datetime import datetime, timedelta
 
 
 def get_logger(name=None):
@@ -279,3 +279,109 @@ async def get_systems():
             }
         ]
     }
+
+@app.get("/api/mock_scenarios")
+async def get_mock_scenarios():
+    now = datetime.utcnow()
+    return [
+        {
+            "incident_id": "INC-001",
+            "scenario_label": "Stuck Order",
+            "agentic_state": "before",
+            "title": "Stuck Order (Before Agentic Intervention)",
+            "description": "Order #12345 stuck in pending state. No agentic action taken yet.",
+            "severity": "high",
+            "status": "open",
+            "type": "stuck_order",
+            "desk": "FX",
+            "trader": "alice",
+            "priority": 1,
+            "created_at": (now - timedelta(minutes=10)).isoformat(),
+            "updated_at": (now - timedelta(minutes=10)).isoformat()
+        },
+        {
+            "incident_id": "INC-002",
+            "scenario_label": "Stuck Order",
+            "agentic_state": "after",
+            "title": "Stuck Order (After Agentic Intervention)",
+            "description": "Order #12345 automatically remediated by agent. All actions logged.",
+            "severity": "high",
+            "status": "resolved",
+            "type": "stuck_order",
+            "desk": "FX",
+            "trader": "alice",
+            "priority": 1,
+            "created_at": (now - timedelta(minutes=10)).isoformat(),
+            "updated_at": (now - timedelta(minutes=5)).isoformat()
+        },
+        {
+            "incident_id": "INC-003",
+            "scenario_label": "Latency Spike",
+            "agentic_state": "before",
+            "title": "Latency Spike (Before Agentic Intervention)",
+            "description": "Latency spike detected, no action taken yet.",
+            "severity": "medium",
+            "status": "investigating",
+            "type": "latency_spike",
+            "desk": "Equities",
+            "trader": "bob",
+            "priority": 2,
+            "created_at": (now - timedelta(minutes=20)).isoformat(),
+            "updated_at": (now - timedelta(minutes=20)).isoformat()
+        },
+        {
+            "incident_id": "INC-004",
+            "scenario_label": "Latency Spike",
+            "agentic_state": "after",
+            "title": "Latency Spike (After Agentic Intervention)",
+            "description": "AI agent isolated root cause, triggered automated fix, and logged the event.",
+            "severity": "medium",
+            "status": "resolved",
+            "type": "latency_spike",
+            "desk": "Equities",
+            "trader": "bob",
+            "priority": 2,
+            "created_at": (now - timedelta(minutes=20)).isoformat(),
+            "updated_at": (now - timedelta(minutes=15)).isoformat()
+        }
+    ]
+
+@app.get("/api/mock_audit_trail")
+async def get_mock_audit_trail():
+    return [
+        {
+            "timestamp": "2024-06-10T09:01:00Z",
+            "action": "Incident Detected",
+            "user": "Agent",
+            "details": "Stuck order flagged on FX desk",
+            "compliance_tag": "SEC 17a-4"
+        },
+        {
+            "timestamp": "2024-06-10T09:01:05Z",
+            "action": "Triage Started",
+            "user": "Agent",
+            "details": "AI agent classified severity: High",
+            "compliance_tag": "FINRA 4511"
+        },
+        {
+            "timestamp": "2024-06-10T09:01:10Z",
+            "action": "Remediation Executed",
+            "user": "Agent",
+            "details": "Order router restarted",
+            "compliance_tag": "SEC 17a-4"
+        },
+        {
+            "timestamp": "2024-06-10T09:01:15Z",
+            "action": "Human Approval",
+            "user": "Analyst",
+            "details": "Approved agent recommendation",
+            "compliance_tag": "FINRA 4511"
+        },
+        {
+            "timestamp": "2024-06-10T09:01:20Z",
+            "action": "Audit Trail Exported",
+            "user": "Compliance",
+            "details": "Evidence package generated for regulator",
+            "compliance_tag": "SEC 17a-4"
+        }
+    ]
