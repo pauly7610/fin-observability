@@ -14,6 +14,7 @@ from apps.backend.database import engine, Base
 import logging
 import structlog
 from opentelemetry import trace
+from datetime import datetime
 
 
 def get_logger(name=None):
@@ -106,12 +107,27 @@ async def websocket_endpoint(websocket: WebSocket):
     WebSocket endpoint for real-time incident updates.
     Clients receive JSON strings with new/updated incidents.
     """
+    await websocket.accept()
     await incident_broadcaster.connect(websocket)
     try:
+        # Send some test data immediately
+        test_incident = {
+            "incident_id": "TEST-001",
+            "title": "Test Incident",
+            "description": "This is a test incident",
+            "severity": "high",
+            "status": "open",
+            "type": "test",
+            "created_at": datetime.utcnow().isoformat()
+        }
+        await websocket.send_json(test_incident)
         while True:
             await websocket.receive_text()  # keepalive
     except WebSocketDisconnect:
         incident_broadcaster.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket /ws/incidents error: {e}")
+        await websocket.close()
 
 
 from apps.backend.scheduled_exports import schedule_exports
@@ -220,3 +236,46 @@ scheduler.start()
 @limiter.limit("5/minute")  # Example: 5 requests per minute per IP
 async def health_check(request):
     return {"status": "healthy"}
+
+
+@app.websocket("/ws/compliance")
+async def compliance_websocket(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time compliance updates.
+    """
+    await websocket.accept()
+    try:
+        # Send some test data immediately
+        test_compliance = {
+            "type": "compliance_update",
+            "status": "active",
+            "message": "Test compliance update",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        await websocket.send_json(test_compliance)
+        
+        while True:
+            await websocket.receive_text()  # keepalive
+    except WebSocketDisconnect:
+        pass
+
+
+@app.get("/api/systems")
+async def get_systems():
+    # Return some test data in an object with a 'systems' property
+    return {
+        "systems": [
+            {
+                "id": 1,
+                "name": "Trading System",
+                "status": "operational",
+                "last_updated": datetime.utcnow().isoformat()
+            },
+            {
+                "id": 2,
+                "name": "Risk Management",
+                "status": "operational",
+                "last_updated": datetime.utcnow().isoformat()
+            }
+        ]
+    }

@@ -10,6 +10,7 @@ from datetime import datetime
 import os
 from apps.backend import siem
 import hashlib
+from sqlalchemy import func
 
 router = APIRouter(prefix="/compliance", tags=["compliance"])
 logger = logging.getLogger(__name__)
@@ -287,7 +288,7 @@ async def get_compliance_stats(db: Session = Depends(get_db)):
         )
 
         severity_counts = (
-            db.query(ComplianceLogModel.severity, db.func.count(ComplianceLogModel.id))
+            db.query(ComplianceLogModel.severity, func.count(ComplianceLogModel.id))
             .group_by(ComplianceLogModel.severity)
             .all()
         )

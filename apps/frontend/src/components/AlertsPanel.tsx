@@ -1,9 +1,12 @@
+'use client'
 import { useAlerts } from "@/hooks/useAlerts"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 
 export function AlertsPanel() {
-  const { data, isLoading } = useAlerts()
+  const { data, isLoading, isError, error } = useAlerts()
   if (isLoading) return <div>Loading...</div>
+  if (!data) return <div>No data available</div>
+  if (isError) return <div>Error loading data: {error?.message}</div>
 
   return (
     <div className="space-y-4">

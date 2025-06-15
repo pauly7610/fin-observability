@@ -21,11 +21,11 @@
     ],
     "baseUrl": ".",
     "paths": {
-      "@/components/*": ["src/components/*"],
-      "@/lib/*": ["lib/*"],
-      "@/app/*": ["app/*"],
       "@/*": ["src/*"],
-      "@/hooks/*": ["src/hooks/*"]
+      "@/components/*": ["src/components/*"],
+      "@/lib/*": ["src/lib/*"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/types/*": ["src/types/*"]
     },
     "types": ["node"]
   },

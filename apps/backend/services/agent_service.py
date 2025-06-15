@@ -4,8 +4,10 @@ from langchain_core.tools import tool
 from typing import Dict, Any
 from pydantic import BaseModel
 import logging
+from opentelemetry import trace
 
 logger = logging.getLogger(__name__)
+tracer = trace.get_tracer(__name__)
 
 
 # Define tools using @tool decorator for LangGraph compatibility

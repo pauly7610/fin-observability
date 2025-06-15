@@ -1,9 +1,12 @@
+'use client'
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useMetrics } from "@/hooks/useMetrics"
 
 export function MetricsOverview() {
-  const { data, isLoading } = useMetrics()
+  const { data, isLoading, isError, error } = useMetrics()
   if (isLoading) return <div>Loading...</div>
+  if (!data) return <div>No data available</div>
+  if (isError) return <div>Error loading metrics: {error?.message}</div>
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 my-6">

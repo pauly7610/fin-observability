@@ -1,9 +1,12 @@
+'use client'
 import { useSystems } from "@/hooks/useSystems"
 import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
 
 export function SystemHealth() {
-  const { data, isLoading } = useSystems()
+  const { data, isLoading, isError, error } = useSystems()
   if (isLoading) return <div>Loading...</div>
+  if (!data) return <div>No data available</div>
+  if (isError) return <div>Error loading data: {error?.message}</div>
 
   return (
     <div className="space-y-4">
