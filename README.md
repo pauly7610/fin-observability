@@ -18,7 +18,7 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 
 ### Prerequisites
 
-- Node.js 18+ and npm 9+
+- Node.js 20+ and npm 9+
 - Python 3.9+
 - PostgreSQL 13+
 - Redis (for caching)
@@ -52,17 +52,16 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 
 ### Frontend Setup
 
-1. **Install Node.js dependencies**:
+1. **Install Node.js dependencies** (from project root):
 
    ```bash
-   cd apps/frontend
    npm install
    ```
 
 2. **Start the development server**:
 
    ```bash
-   npm run dev
+   npm run dev --workspace=apps/frontend
    ```
 
 3. **Open your browser** to: http://localhost:3000
@@ -72,7 +71,7 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 ```
 fin-ai-observability/
 ├── apps/
-│   ├── frontend/      # Next.js 14.2.1 (App Router)
+│   ├── frontend/      # Next.js 16.1.6 (App Router, Turbopack)
 │   └── backend/       # FastAPI 0.111.0
 ├── packages/
 │   ├── agentic-core/  # LangChain 0.3.x, OpenAI
