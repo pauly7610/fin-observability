@@ -277,3 +277,41 @@ class AnomalyDetectionResponse(BaseModel):
     anomalies: List[Dict[str, Any]]
     scores: List[float]
     model_meta: Dict[str, Any]
+
+
+# Compliance Monitor schemas
+class ComplianceMonitorTransaction(BaseModel):
+    id: str
+    amount: float
+    counterparty: str
+    account: str
+    timestamp: datetime
+    type: str = Field(..., description="Transaction type: 'wire', 'ach', or 'internal'")
+
+
+class AlternativeAction(BaseModel):
+    action: str
+    confidence: float
+    reasoning: str
+
+
+class AuditTrail(BaseModel):
+    regulation: str
+    timestamp: datetime
+    agent: str
+
+
+class ComplianceDecisionResponse(BaseModel):
+    action: str = Field(..., description="Decision: 'approve', 'block', or 'manual_review'")
+    confidence: float
+    reasoning: str
+    alternatives: List[AlternativeAction]
+    audit_trail: AuditTrail
+
+
+class ComplianceStatusResponse(BaseModel):
+    status: str
+    agent: str
+    version: str
+    regulations: List[str]
+    features: List[str]

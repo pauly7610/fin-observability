@@ -4,6 +4,7 @@ import { AIAgentActivity } from "@/components/AIAgentActivity"
 import { AlertsPanel } from "@/components/AlertsPanel"
 import { ComplianceStatus } from "@/components/ComplianceStatus"
 import { SystemHealth } from "@/components/SystemHealth"
+import { AgentComplianceMonitor } from "@/components/AgentComplianceMonitor"
 import { useMockScenarios } from '@/hooks/useMockScenarios';
 import { useMockAuditTrail } from '@/hooks/useMockAuditTrail';
 import React from 'react';
@@ -18,6 +19,7 @@ export default function DashboardPage() {
         <TabsTrigger value="overview">Overview</TabsTrigger>
         <TabsTrigger value="alerts">Alerts</TabsTrigger>
         <TabsTrigger value="compliance">Compliance</TabsTrigger>
+        <TabsTrigger value="compliance-monitor">Compliance Monitor</TabsTrigger>
         <TabsTrigger value="systems">Systems</TabsTrigger>
       </TabsList>
       <TabsContent value="overview">
@@ -32,6 +34,9 @@ export default function DashboardPage() {
       </TabsContent>
       <TabsContent value="systems">
         <SystemHealth />
+      </TabsContent>
+      <TabsContent value="compliance-monitor">
+        <AgentComplianceMonitor />
       </TabsContent>
     </Tabs>
   )

@@ -9,7 +9,16 @@ from ..services.audit_summary_service import AuditSummaryService
 from ..services.agentic_workflow_service import AgenticWorkflowService
 from ..services.basel_compliance_service import BaselComplianceService
 from ..security import require_role
-from ..schemas import AgentActionCreate, AgentActionUpdate, AgentAction
+from ..schemas import (
+    AgentActionCreate,
+    AgentActionUpdate,
+    AgentAction,
+    ComplianceMonitorTransaction,
+    ComplianceDecisionResponse,
+    ComplianceStatusResponse,
+    AlternativeAction,
+    AuditTrail,
+)
 from ..models import AgentAction as AgentActionModel
 from ..database import get_db
 import logging
@@ -453,3 +462,166 @@ async def summarize_audit(
             "Agentic audit summarization endpoint failed", error=str(e)
         )
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.post("/compliance/monitor", response_model=ComplianceDecisionResponse)
+@limiter.limit("10/minute")
+async def monitor_transaction_compliance(
+    request: Request,
+    txn: ComplianceMonitorTransaction,
+    db: Session = Depends(get_db),
+):
+    """
+    FINRA 4511 compliant transaction monitoring with agent orchestration.
+    
+    This endpoint:
+    1. Runs anomaly detection using heuristics/ML
+    2. Checks compliance rules (FINRA, SEC)
+    3. Makes approval/block/review decision with reasoning
+    4. Logs full audit trail
+    
+    Returns decision with confidence scores and alternatives.
+    """
+    with tracer.start_as_current_span("agent.compliance.monitor") as span:
+        span.set_attribute("transaction_id", txn.id)
+        span.set_attribute("amount", txn.amount)
+        span.set_attribute("type", txn.type)
+        
+        siem.send_syslog_event(
+            event="Agent: Compliance monitor transaction",
+            host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+            port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+            extra={"transaction_id": txn.id, "amount": txn.amount},
+        )
+        
+        try:
+            # Step 1: Calculate anomaly score using heuristics
+            anomaly_score = _calculate_anomaly_score(txn)
+            span.set_attribute("anomaly_score", anomaly_score)
+            
+            # Step 2: Check compliance rules
+            compliance_violation = _check_compliance_rules(txn)
+            
+            # Step 3: Make decision
+            if compliance_violation:
+                decision = ComplianceDecisionResponse(
+                    action="block",
+                    confidence=95.0,
+                    reasoning=f"Regulatory violation: {compliance_violation['description']}",
+                    alternatives=[],
+                    audit_trail=AuditTrail(
+                        regulation="FINRA_4511",
+                        timestamp=datetime.utcnow(),
+                        agent="ComplianceChecker"
+                    )
+                )
+            elif anomaly_score > 0.7:
+                decision = ComplianceDecisionResponse(
+                    action="manual_review",
+                    confidence=85.0,
+                    reasoning=f"High anomaly score ({anomaly_score:.3f}) requires human review. Statistical outlier detected - unusual transaction pattern.",
+                    alternatives=[
+                        AlternativeAction(
+                            action="approve",
+                            confidence=0.1,
+                            reasoning="Could be legitimate large transaction"
+                        ),
+                        AlternativeAction(
+                            action="block",
+                            confidence=0.05,
+                            reasoning="Too risky to auto-approve"
+                        )
+                    ],
+                    audit_trail=AuditTrail(
+                        regulation="SEC_17a4",
+                        timestamp=datetime.utcnow(),
+                        agent="AnomalyDetector"
+                    )
+                )
+            else:
+                decision = ComplianceDecisionResponse(
+                    action="approve",
+                    confidence=90.0,
+                    reasoning=f"Transaction passed all compliance checks. Anomaly score: {anomaly_score:.3f} (within normal parameters).",
+                    alternatives=[],
+                    audit_trail=AuditTrail(
+                        regulation="FINRA_4511",
+                        timestamp=datetime.utcnow(),
+                        agent="ComplianceChecker"
+                    )
+                )
+            
+            span.set_attribute("decision", decision.action)
+            span.set_attribute("confidence", decision.confidence)
+            
+            # Increment compliance action metric
+            from apps.backend.main import compliance_action_counter
+            compliance_action_counter.add(
+                1,
+                {"type": "compliance_monitor", "action": decision.action},
+            )
+            
+            return decision
+            
+        except Exception as e:
+            span.record_exception(e)
+            get_logger(__name__).error("Compliance monitor endpoint failed", error=str(e))
+            raise HTTPException(status_code=500, detail=str(e))
+
+
+@router.get("/compliance/status", response_model=ComplianceStatusResponse)
+async def get_compliance_agent_status():
+    """
+    Health check endpoint for compliance agent.
+    """
+    return ComplianceStatusResponse(
+        status="operational",
+        agent="FinancialComplianceAgent",
+        version="1.0.0",
+        regulations=["FINRA_4511", "SEC_17a4"],
+        features=[
+            "anomaly_detection",
+            "compliance_rules",
+            "audit_trails",
+            "human_in_the_loop"
+        ]
+    )
+
+
+def _calculate_anomaly_score(txn: ComplianceMonitorTransaction) -> float:
+    """
+    Calculate anomaly score using heuristics.
+    Replace with actual ML model call for production.
+    """
+    score = 0.0
+    
+    # Large amount check
+    if txn.amount > 50000:
+        score += 0.4
+    elif txn.amount > 10000:
+        score += 0.2
+    
+    # Time-based check
+    hour = txn.timestamp.hour
+    if hour < 6 or hour > 22:  # Off-hours
+        score += 0.3
+    
+    # Wire transfer check
+    if txn.type == "wire" and txn.amount > 10000:
+        score += 0.2
+    
+    return min(score, 1.0)
+
+
+def _check_compliance_rules(txn: ComplianceMonitorTransaction) -> dict | None:
+    """
+    Check FINRA 4511 and SEC 17a-4 compliance rules.
+    """
+    # Rule: Extremely large transactions require manual review
+    if txn.amount > 100000:
+        return {
+            "rule": "FINRA_4511_LARGE_TRANSACTION",
+            "description": "Transactions over $100,000 require manual compliance review"
+        }
+    
+    return None

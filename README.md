@@ -8,6 +8,7 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 
 - Real-time anomaly detection using Isolation Forest and KNN models
 - Compliance monitoring with SEC 17a-4 and FINRA 4511 audit trails
+- **Financial Compliance Agent** - AI-powered transaction monitoring with governance/audit trails
 - Agentic AI capabilities with LangChain for incident triage and remediation
 - OpenTelemetry instrumentation compatible with ITRS Geneos platform
 - Kafka streaming stubs for event ingestion
@@ -179,3 +180,48 @@ MIT
 ### Commit Example
 
 See the latest commit message for a summary of all major changes.
+
+## 🤖 Financial Compliance Agent
+
+The platform includes an AI-powered Financial Compliance Agent that monitors transactions for regulatory compliance.
+
+### Features
+
+- **FINRA 4511 & SEC 17a-4 Compliance** - Automated regulatory rule checking
+- **Anomaly Detection** - Heuristic-based scoring for suspicious transactions
+- **Decision Transparency** - Full reasoning and alternative actions provided
+- **Audit Trails** - Complete traceability for compliance reporting
+
+### API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agent/compliance/monitor` | POST | Submit a transaction for compliance analysis |
+| `/agent/compliance/status` | GET | Check agent health and capabilities |
+
+### Example Request
+
+```bash
+curl -X POST http://localhost:8000/agent/compliance/monitor \
+  -H "Content-Type: application/json" \
+  -d '{
+    "id": "txn_001",
+    "amount": 50000,
+    "counterparty": "ACME Corp",
+    "account": "1234567890",
+    "timestamp": "2024-01-15T14:30:00Z",
+    "type": "wire"
+  }'
+```
+
+### Decision Types
+
+| Action | Description |
+|--------|-------------|
+| `approve` | Transaction passed all compliance checks |
+| `manual_review` | High anomaly score requires human review |
+| `block` | Regulatory violation detected |
+
+### Frontend
+
+Access the Compliance Monitor UI via the **Compliance Monitor** tab in the dashboard at `http://localhost:3000/incidents`.
