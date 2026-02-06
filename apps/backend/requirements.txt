@@ -52,9 +52,9 @@ langchain-text-splitters>=0.0.1
 langchain-openai>=0.0.8
 langgraph>=0.0.27
 openai==1.25.0
-numpy==1.24.4
-scikit-learn==1.5.2
-scipy==1.15.3
+numpy>=1.24.4
+scikit-learn>=1.5.0
+scipy>=1.12.0
 
 # Testing
 pytest==8.0.2
