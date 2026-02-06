@@ -90,9 +90,15 @@ Base.metadata.create_all(bind=engine)
 # Initialize OpenTelemetry (tracing)
 trace.set_tracer_provider(TracerProvider())
 tracer = trace.get_tracer(__name__)
-otlp_exporter = OTLPSpanExporter(endpoint="localhost:4317", insecure=True)
-span_processor = BatchSpanProcessor(otlp_exporter)
-trace.get_tracer_provider().add_span_processor(span_processor)
+
+otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+if otel_endpoint:
+    otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint, insecure=True)
+    span_processor = BatchSpanProcessor(otlp_exporter)
+    trace.get_tracer_provider().add_span_processor(span_processor)
+    logging.info(f"OTLP trace exporter enabled -> {otel_endpoint}")
+else:
+    logging.info("OTEL_EXPORTER_OTLP_ENDPOINT not set — OTLP trace exporter disabled")
 
 # Initialize OpenTelemetry Metrics
 from opentelemetry.sdk.metrics import MeterProvider
@@ -100,9 +106,14 @@ from opentelemetry.metrics import set_meter_provider, get_meter
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
 from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
 
-metric_exporter = OTLPMetricExporter(endpoint="localhost:4317", insecure=True)
-metric_reader = PeriodicExportingMetricReader(metric_exporter)
-meter_provider = MeterProvider(metric_readers=[metric_reader])
+if otel_endpoint:
+    metric_exporter = OTLPMetricExporter(endpoint=otel_endpoint, insecure=True)
+    metric_reader = PeriodicExportingMetricReader(metric_exporter)
+    meter_provider = MeterProvider(metric_readers=[metric_reader])
+    logging.info(f"OTLP metric exporter enabled -> {otel_endpoint}")
+else:
+    logging.info("OTEL_EXPORTER_OTLP_ENDPOINT not set — OTLP metric exporter disabled")
+    meter_provider = MeterProvider()
 set_meter_provider(meter_provider)
 
 # Define meters for key business/compliance events
