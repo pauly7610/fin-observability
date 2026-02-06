@@ -187,7 +187,7 @@ scheduler.start()
 
 @app.get("/health")
 @limiter.limit("5/minute")  # Example: 5 requests per minute per IP
-async def health_check(request):
+async def health_check(request: Request):
     return {"status": "healthy"}
 
 
