@@ -18,7 +18,6 @@ yarn-error.log*
 
 # === Next.js/React/Build Artifacts ===
 .next/
-out/
 build/
 dist/
 coverage/
