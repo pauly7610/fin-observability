@@ -205,3 +205,20 @@ class ExportMetadata(Base):
     verified_at = Column(DateTime, nullable=True)
     meta = Column(JSON, nullable=True)
     requester = relationship("User", foreign_keys=[requested_by])
+
+
+class ComplianceFeedback(Base):
+    __tablename__ = "compliance_feedback"
+
+    id = Column(Integer, primary_key=True, index=True)
+    transaction_id = Column(String, index=True, nullable=False)
+    predicted_action = Column(String, nullable=False)  # approve, block, manual_review
+    actual_action = Column(String, nullable=False)  # approve, block, manual_review
+    is_correct = Column(Boolean, nullable=False)
+    confidence = Column(Float, nullable=True)
+    anomaly_score = Column(Float, nullable=True)
+    reviewer_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    notes = Column(String, nullable=True)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
+    reviewer = relationship("User", foreign_keys=[reviewer_id])

@@ -662,6 +662,322 @@ async def reset_compliance_metrics(
     return result
 
 
+@router.post("/compliance/feedback")
+async def submit_compliance_feedback(
+    request: Request,
+    transaction_id: str,
+    predicted_action: str,
+    actual_action: str,
+    confidence: float = None,
+    anomaly_score: float = None,
+    notes: str = None,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Submit feedback on a compliance decision for precision/recall tracking.
+
+    Analysts mark whether the model's prediction was correct.
+    """
+    from ..models import ComplianceFeedback
+
+    is_correct = predicted_action == actual_action
+    feedback = ComplianceFeedback(
+        transaction_id=transaction_id,
+        predicted_action=predicted_action,
+        actual_action=actual_action,
+        is_correct=is_correct,
+        confidence=confidence,
+        anomaly_score=anomaly_score,
+        reviewer_id=getattr(user, "id", None),
+        notes=notes,
+    )
+    db.add(feedback)
+    db.commit()
+    db.refresh(feedback)
+    return {
+        "id": feedback.id,
+        "transaction_id": transaction_id,
+        "predicted_action": predicted_action,
+        "actual_action": actual_action,
+        "is_correct": is_correct,
+    }
+
+
+@router.get("/compliance/metrics/evaluation")
+async def get_model_evaluation(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Get precision, recall, F1, and confusion matrix from analyst feedback.
+    Requires at least 10 feedback samples.
+    """
+    from ..ml.evaluation import ModelEvaluator
+
+    evaluator = ModelEvaluator()
+    return evaluator.compute_metrics(db, days=days)
+
+
+@router.get("/compliance/metrics/calibration")
+async def get_confidence_calibration(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Get confidence calibration data: are high-confidence predictions more accurate?
+    """
+    from ..ml.evaluation import ModelEvaluator
+
+    evaluator = ModelEvaluator()
+    return evaluator.compute_confidence_calibration(db, days=days)
+
+
+@router.get("/compliance/metrics/confusion")
+async def get_confusion_matrix(
+    days: int = 30,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Get just the confusion matrix from feedback data.
+    """
+    from ..ml.evaluation import ModelEvaluator
+
+    evaluator = ModelEvaluator()
+    result = evaluator.compute_metrics(db, days=days)
+    if result.get("status") != "ok":
+        return result
+    return {
+        "confusion_matrix": result["confusion_matrix"],
+        "total_feedback": result["total_feedback"],
+        "accuracy": result["accuracy"],
+    }
+
+
+@router.post("/compliance/retrain")
+@limiter.limit("1/minute")
+async def retrain_compliance_model(
+    request: Request,
+    user=Depends(require_role(["admin"])),
+):
+    """
+    Admin-only: Retrain the anomaly detection model from the bundled dataset.
+    Bumps model version automatically.
+    """
+    detector = get_detector()
+    result = detector.retrain_from_csv()
+    return result
+
+
+@router.post("/compliance/explain")
+async def explain_compliance_decision(
+    request: Request,
+    transaction: dict,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Explain a compliance decision using SHAP values.
+    Shows which features contributed most to the anomaly score.
+    """
+    from ..ml.explainability import explain_prediction
+    from dateutil.parser import parse as parse_date
+
+    detector = get_detector()
+    ts = transaction.get("timestamp")
+    if isinstance(ts, str):
+        ts = parse_date(ts)
+    elif ts is None:
+        ts = datetime.utcnow()
+
+    result = explain_prediction(
+        detector,
+        amount=float(transaction.get("amount", 0)),
+        timestamp=ts,
+        txn_type=transaction.get("type", "ach"),
+    )
+    return result
+
+
+@router.post("/compliance/explain-batch")
+async def explain_compliance_batch(
+    request: Request,
+    transactions: list,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Get aggregate feature importance across a batch of transactions.
+    Returns mean absolute SHAP values per feature.
+    """
+    from ..ml.explainability import explain_batch
+
+    detector = get_detector()
+    result = explain_batch(detector, transactions)
+    return result
+
+
+@router.post("/compliance/ensemble")
+async def ensemble_compliance_check(
+    request: Request,
+    transaction: dict,
+    transaction_history: list = None,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Run ensemble anomaly detection combining Isolation Forest + sequence model.
+    Optionally provide transaction_history for sequence-based analysis.
+    """
+    from ..ml.ensemble import get_ensemble_detector
+    from dateutil.parser import parse as parse_date
+
+    ensemble = get_ensemble_detector()
+    ts = transaction.get("timestamp")
+    if isinstance(ts, str):
+        ts = parse_date(ts)
+    elif ts is None:
+        ts = datetime.utcnow()
+
+    score, details = ensemble.predict(
+        amount=float(transaction.get("amount", 0)),
+        timestamp=ts,
+        txn_type=transaction.get("type", "ach"),
+        transaction_history=transaction_history,
+    )
+    return {
+        "score": score,
+        "details": details,
+    }
+
+
+@router.get("/compliance/model/ensemble")
+async def get_ensemble_info(
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """
+    Get ensemble model metadata including individual model scores and weights.
+    """
+    from ..ml.ensemble import get_ensemble_detector
+
+    ensemble = get_ensemble_detector()
+    return ensemble.get_model_info()
+
+
+# --- A/B Testing Endpoints ---
+
+@router.post("/compliance/experiments")
+async def create_experiment(
+    request: Request,
+    name: str,
+    model_a: str = "isolation_forest",
+    model_b: str = "ensemble",
+    traffic_split: int = 50,
+    user=Depends(require_role(["admin"])),
+):
+    """
+    Admin-only: Create a new A/B test experiment between model variants.
+    traffic_split = % of traffic routed to model_a (rest goes to model_b).
+    """
+    from ..ml.ab_testing import get_ab_manager
+
+    manager = get_ab_manager()
+    return manager.create_experiment(name, model_a, model_b, traffic_split)
+
+
+@router.get("/compliance/experiments")
+async def list_experiments(
+    active_only: bool = True,
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """List all A/B test experiments."""
+    from ..ml.ab_testing import get_ab_manager
+
+    manager = get_ab_manager()
+    return manager.list_experiments(active_only=active_only)
+
+
+@router.get("/compliance/experiments/{experiment_id}/results")
+async def get_experiment_results(
+    experiment_id: str,
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """Get A/B test results with statistical significance testing."""
+    from ..ml.ab_testing import get_ab_manager
+
+    manager = get_ab_manager()
+    return manager.get_results(experiment_id)
+
+
+@router.post("/compliance/experiments/{experiment_id}/promote")
+async def promote_experiment_winner(
+    experiment_id: str,
+    user=Depends(require_role(["admin"])),
+):
+    """Admin-only: Promote the winning model variant and close the experiment."""
+    from ..ml.ab_testing import get_ab_manager
+
+    manager = get_ab_manager()
+    return manager.promote_winner(experiment_id)
+
+
+# --- Evaluation / Audit Trail Endpoints ---
+
+@router.post("/compliance/eval/submit")
+async def submit_eval_batch(
+    request: Request,
+    predictions: list,
+    model_version: str = None,
+    user=Depends(require_role(["admin", "compliance"])),
+):
+    """
+    Submit a batch of predictions with ground truth for evaluation.
+    Each item: {transaction_id, predicted_action, actual_action}
+    """
+    from ..services.evalai_service import get_evalai_service
+
+    service = get_evalai_service()
+    return service.submit_batch(predictions, model_version=model_version)
+
+
+@router.get("/compliance/eval/results")
+async def get_eval_results(
+    limit: int = 10,
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """Get recent evaluation results."""
+    from ..services.evalai_service import get_evalai_service
+
+    service = get_evalai_service()
+    return service.get_results(limit=limit)
+
+
+@router.get("/compliance/eval/leaderboard")
+async def get_eval_leaderboard(
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """Get leaderboard of model versions ranked by F1 score."""
+    from ..services.evalai_service import get_evalai_service
+
+    service = get_evalai_service()
+    return service.get_leaderboard()
+
+
+@router.get("/compliance/eval/audit-trail")
+async def get_eval_audit_trail(
+    model_version: str = None,
+    user=Depends(require_role(["admin", "compliance"])),
+):
+    """Get full audit trail of evaluations, optionally filtered by model version."""
+    from ..services.evalai_service import get_evalai_service
+
+    service = get_evalai_service()
+    return service.get_audit_trail(model_version=model_version)
+
+
 @router.post("/compliance/test-batch")
 @limiter.limit("2/minute")
 async def run_compliance_test_batch(

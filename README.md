@@ -345,7 +345,7 @@ docker run -p 8000:8000 -e REDIS_URL=redis://host:6379 fin-obs-backend
 
 ## 🚀 Production Roadmap
 
-### Phase 1: ✅ Complete (Current)
+### Phase 1: ✅ Complete
 - ML-powered anomaly detection (Isolation Forest, 6 features)
 - Compliance rule engine (FINRA 4511, SEC 17a-4)
 - Real-time metrics (Redis-backed with in-memory fallback)
@@ -353,14 +353,43 @@ docker run -p 8000:8000 -e REDIS_URL=redis://host:6379 fin-obs-backend
 - 43 passing tests (integration, unit, ML model)
 - Railway deployment config
 
-### Phase 2: In Progress
-- [ ] Deploy to Railway (public URL)
-- [ ] Add real transaction dataset (anonymized)
-- [ ] Retrain on production distribution
-- [ ] Add precision/recall tracking
+### Phase 2: ✅ Complete
+- [x] Realistic transaction dataset (5,000 anonymized transactions via Faker)
+- [x] Model retraining endpoint (`POST /agent/compliance/retrain`) with auto-versioning
+- [x] Precision/recall tracking with analyst feedback loop
+- [x] Confidence calibration analysis
+- [x] Confusion matrix endpoint
 
-### Phase 3: Planned
-- [ ] Multi-model ensemble (Isolation Forest + LSTM)
-- [ ] Explainability dashboard (SHAP values)
-- [ ] A/B testing framework (model variants)
-- [ ] Integration with EvalAI for full audit trails
+### Phase 3: ✅ Complete
+- [x] Multi-model ensemble (Isolation Forest + PCA-Autoencoder sequence model)
+- [x] SHAP explainability dashboard (`/explainability` frontend page)
+- [x] A/B testing framework with chi-squared significance testing
+- [x] Internal evaluation service with leaderboard and audit trails
+
+### New API Endpoints (Phase 2 & 3)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agent/compliance/feedback` | POST | Submit analyst feedback for precision/recall |
+| `/agent/compliance/metrics/evaluation` | GET | Precision, recall, F1, confusion matrix |
+| `/agent/compliance/metrics/calibration` | GET | Confidence calibration analysis |
+| `/agent/compliance/metrics/confusion` | GET | Confusion matrix only |
+| `/agent/compliance/retrain` | POST | Retrain model from dataset (admin) |
+| `/agent/compliance/explain` | POST | SHAP explanation for a single transaction |
+| `/agent/compliance/explain-batch` | POST | Aggregate SHAP feature importance |
+| `/agent/compliance/ensemble` | POST | Ensemble prediction (IF + sequence) |
+| `/agent/compliance/model/ensemble` | GET | Ensemble model metadata |
+| `/agent/compliance/experiments` | POST/GET | Create/list A/B test experiments |
+| `/agent/compliance/experiments/{id}/results` | GET | A/B test results with significance |
+| `/agent/compliance/experiments/{id}/promote` | POST | Promote winning model variant |
+| `/agent/compliance/eval/submit` | POST | Submit batch for evaluation |
+| `/agent/compliance/eval/results` | GET | Recent evaluation results |
+| `/agent/compliance/eval/leaderboard` | GET | Model version leaderboard by F1 |
+| `/agent/compliance/eval/audit-trail` | GET | Full evaluation audit trail |
+
+### Phase 4: Future
+- [ ] Deploy to Railway (public URL)
+- [ ] Real production dataset integration
+- [ ] Deep learning LSTM with ONNX Runtime inference
+- [ ] SHAP waterfall charts in frontend (recharts)
+- [ ] Automated retraining pipeline on schedule

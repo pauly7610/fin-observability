@@ -221,13 +221,101 @@ class AnomalyDetector:
         
         return risk_factors
     
+    def retrain_from_csv(self, csv_path: str = None) -> Dict[str, Any]:
+        """
+        Retrain model from a CSV dataset.
+        
+        Args:
+            csv_path: Path to CSV file. Defaults to bundled dataset.
+        
+        Returns:
+            Dict with training results and before/after comparison.
+        """
+        import csv as csv_mod
+        from dateutil.parser import parse as parse_date
+        
+        if csv_path is None:
+            csv_path = os.path.join(
+                os.path.dirname(__file__), "data", "transactions.csv"
+            )
+        
+        if not os.path.exists(csv_path):
+            return {"status": "error", "message": f"CSV not found: {csv_path}"}
+        
+        # Read CSV
+        rows = []
+        with open(csv_path, "r") as f:
+            reader = csv_mod.DictReader(f)
+            for row in reader:
+                rows.append(row)
+        
+        if len(rows) < 100:
+            return {"status": "error", "message": f"Need at least 100 rows, got {len(rows)}"}
+        
+        # Filter to normal transactions only (the model learns what "normal" looks like)
+        normal_rows = [r for r in rows if r.get("label", "normal") == "normal"]
+        if len(normal_rows) < 50:
+            normal_rows = rows  # Use all if not enough normals
+        
+        # Extract features
+        amounts, hours, days, is_weekend, is_off_hours, txn_types = [], [], [], [], [], []
+        for row in normal_rows:
+            ts = parse_date(row["timestamp"])
+            amounts.append(float(row["amount"]))
+            hours.append(ts.hour)
+            days.append(ts.weekday())
+            is_weekend.append(1 if ts.weekday() >= 5 else 0)
+            is_off_hours.append(1 if (ts.hour < 6 or ts.hour > 22) else 0)
+            txn_types.append(self.TXN_TYPE_ENCODING.get(row.get("type", "ach").lower(), 1))
+        
+        X = np.column_stack([amounts, hours, days, is_weekend, is_off_hours, txn_types])
+        
+        # Bump version
+        parts = self.VERSION.split(".")
+        parts[-1] = str(int(parts[-1]) + 1)
+        new_version = ".".join(parts)
+        
+        # Train
+        self.scaler = StandardScaler()
+        X_scaled = self.scaler.fit_transform(X)
+        
+        self.model = IsolationForest(
+            contamination=0.1,
+            random_state=42,
+            n_estimators=100,
+            max_samples="auto",
+        )
+        self.model.fit(X_scaled)
+        
+        # Save
+        os.makedirs("models", exist_ok=True)
+        with open(self.MODEL_PATH, "wb") as f:
+            pickle.dump(self.model, f)
+        with open(self.SCALER_PATH, "wb") as f:
+            pickle.dump(self.scaler, f)
+        
+        old_version = self.VERSION
+        self.VERSION = new_version
+        self._training_samples = len(normal_rows)
+        
+        logger.info(f"Retrained model: {old_version} -> {new_version} on {len(normal_rows)} samples")
+        
+        return {
+            "status": "ok",
+            "old_version": old_version,
+            "new_version": new_version,
+            "training_samples": len(normal_rows),
+            "total_rows": len(rows),
+            "normal_rows": len(normal_rows),
+        }
+
     def get_model_info(self) -> Dict[str, Any]:
         """Return model metadata for status endpoints."""
         return {
             "version": self.VERSION,
             "algorithm": "IsolationForest",
             "features": self.FEATURE_NAMES,
-            "training_samples": 2000,
+            "training_samples": getattr(self, "_training_samples", 2000),
             "contamination": 0.1,
             "model_path": self.MODEL_PATH
         }
