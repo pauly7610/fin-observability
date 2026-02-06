@@ -185,6 +185,27 @@ scheduler.start()
 # Limiter is now created below and imported by routers
 
 
+@app.get("/")
+async def root():
+    return {
+        "name": "Financial AI Observability Platform",
+        "version": "2.0.0",
+        "status": "running",
+        "docs": "/docs",
+        "health": "/health",
+        "endpoints": {
+            "compliance_monitor": "/agent/compliance/monitor",
+            "compliance_status": "/agent/compliance/status",
+            "compliance_metrics": "/agent/compliance/metrics",
+            "explainability": "/agent/compliance/explain",
+            "ensemble": "/agent/compliance/ensemble",
+            "experiments": "/agent/compliance/experiments",
+            "evaluation": "/agent/compliance/eval/results",
+            "leaderboard": "/agent/compliance/eval/leaderboard",
+        },
+    }
+
+
 @app.get("/health")
 @limiter.limit("5/minute")  # Example: 5 requests per minute per IP
 async def health_check(request: Request):
