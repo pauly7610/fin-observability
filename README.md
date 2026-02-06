@@ -1,4 +1,6 @@
-Financial AI Observability Platform
+# Financial AI Observability Platform
+
+> **Live:** [https://fin-observability-production.up.railway.app](https://fin-observability-production.up.railway.app)
 
 ## Overview
 
@@ -172,20 +174,21 @@ Please see CONTRIBUTING.md for guidelines.
 - **Proxy/Rewrite Setup:** Next.js frontend now proxies `/api/*` requests to the backend using a rewrite rule in `next.config.js` for seamless local development.
 - **Test Data:** Backend endpoints return mock/test data if the database is empty, improving frontend development experience.
 - **Authentication:** Supports both JWT (`POST /auth/login`) and header-based auth. Set `AUTH_MODE=jwt` for production. Header-based auth is the default for local development.
-- **OpenTelemetry Tracing:** Backend is instrumented for OpenTelemetry. To enable local tracing, run:
-
-  ```sh
-  docker run --name otel-collector -p 4317:4317 -p 4318:4318 -p 55681:55681 otel/opentelemetry-collector:latest
-  ```
-
-  This will allow traces and metrics to be exported from the backend. See backend logs for exporter status.
+- **OpenTelemetry Tracing:** Backend is instrumented for OpenTelemetry. Trace/metric export is controlled by the `OTEL_EXPORTER_OTLP_ENDPOINT` env var:
+  - **Production (Railway):** Set to `ravishing-prosperity.railway.internal:4317` — the OTel Collector runs as a separate Railway service.
+  - **Local development:** Run a local collector:
+    ```sh
+    docker run --name otel-collector -p 4317:4317 -p 4318:4318 otel/opentelemetry-collector:latest
+    ```
+    Then set `OTEL_EXPORTER_OTLP_ENDPOINT=localhost:4317`.
+  - **Disabled:** If the env var is not set, exporters are skipped entirely (no retry errors).
 
 ### Troubleshooting
 
 - **WebSocket 403 Errors:** Ensure backend `/ws/incidents` and `/ws/compliance` endpoints call `await websocket.accept()` and have no permission checks for local testing.
 - **API 404s on `/api/systems`:** Make sure the Next.js rewrite rule is present and restart the frontend dev server after changes.
 - **Frontend `.map` Errors:** The backend now returns `{ systems: [...] }` for `/api/systems`. Use `data.systems.map(...)` in the frontend.
-- **OpenTelemetry Exporter Errors:** If you see `StatusCode.UNAVAILABLE`, ensure the collector is running as above.
+- **OpenTelemetry Exporter Errors:** If you see `StatusCode.UNAVAILABLE`, either start a local collector or unset `OTEL_EXPORTER_OTLP_ENDPOINT` to disable exporting.
 - **DeprecationWarnings:** If you see `util._extend` warnings, update your dependencies with `npm update`.
 - **Vue Source Map 404s:** These are likely from browser extensions and can be ignored unless you are developing Vue components.
 
@@ -334,7 +337,17 @@ Set these in your Railway project settings:
 REDIS_URL=<auto-populated by Railway Redis addon>
 DATABASE_URL=<auto-populated by Railway Postgres addon>
 CORS_ORIGINS=https://your-frontend.up.railway.app
+OTEL_EXPORTER_OTLP_ENDPOINT=ravishing-prosperity.railway.internal:4317
 ```
+
+### OpenTelemetry Collector (Railway)
+
+The OTel Collector runs as a separate service (`ravishing-prosperity`) in the same Railway project:
+
+- **Config:** `otel-collector/otel-collector-config.yaml`
+- **Dockerfile:** `otel-collector/Dockerfile`
+- **Receives:** OTLP gRPC (`:4317`) and HTTP (`:4318`)
+- **Exports:** Logging (stdout → Railway logs). To forward to Grafana Cloud, Honeycomb, etc., add an `otlphttp` exporter to the config.
 
 ### Docker (Alternative)
 
@@ -387,9 +400,14 @@ docker run -p 8000:8000 -e REDIS_URL=redis://host:6379 fin-obs-backend
 | `/agent/compliance/eval/leaderboard` | GET | Model version leaderboard by F1 |
 | `/agent/compliance/eval/audit-trail` | GET | Full evaluation audit trail |
 
-### Phase 4: Future
-- [ ] Deploy to Railway (public URL)
+### Phase 4: ✅ Complete
+- [x] Deploy to Railway (public URL): [fin-observability-production.up.railway.app](https://fin-observability-production.up.railway.app)
+- [x] OpenTelemetry Collector deployed as Railway service with configurable OTLP exporters
+- [x] Environment variable configuration (`env.example`)
+
+### Phase 5: Future
 - [ ] Real production dataset integration
 - [ ] Deep learning LSTM with ONNX Runtime inference
 - [ ] SHAP waterfall charts in frontend (recharts)
 - [ ] Automated retraining pipeline on schedule
+- [ ] Forward telemetry to managed backend (Grafana Cloud / Honeycomb)
