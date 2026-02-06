@@ -2,6 +2,17 @@
 
 import React, { useState } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
+import {
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  CartesianGrid,
+  Tooltip,
+  ResponsiveContainer,
+  Cell,
+  ReferenceLine,
+} from 'recharts'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
@@ -35,6 +46,123 @@ const FEATURE_LABELS: Record<string, string> = {
   is_weekend: 'Weekend',
   is_off_hours: 'Off-Hours',
   txn_type_encoded: 'Transaction Type',
+}
+
+interface WaterfallProps {
+  waterfall: {
+    base: number
+    steps: { feature: string; contribution: number }[]
+    final: number
+  }
+}
+
+function WaterfallChart({ waterfall }: WaterfallProps) {
+  // Build waterfall data: each bar shows the invisible "base" portion and the visible contribution
+  const data: {
+    name: string
+    invisible: number
+    value: number
+    isPositive: boolean
+    isTotal: boolean
+  }[] = []
+
+  let running = waterfall.base
+  data.push({
+    name: 'Base',
+    invisible: 0,
+    value: waterfall.base,
+    isPositive: true,
+    isTotal: true,
+  })
+
+  for (const step of waterfall.steps) {
+    const contribution = step.contribution
+    if (contribution >= 0) {
+      data.push({
+        name: FEATURE_LABELS[step.feature] || step.feature,
+        invisible: running,
+        value: contribution,
+        isPositive: true,
+        isTotal: false,
+      })
+    } else {
+      data.push({
+        name: FEATURE_LABELS[step.feature] || step.feature,
+        invisible: running + contribution,
+        value: Math.abs(contribution),
+        isPositive: false,
+        isTotal: false,
+      })
+    }
+    running += contribution
+  }
+
+  data.push({
+    name: 'Final',
+    invisible: 0,
+    value: waterfall.final,
+    isPositive: waterfall.final >= waterfall.base,
+    isTotal: true,
+  })
+
+  const maxVal = Math.max(...data.map((d) => d.invisible + d.value), 0.01)
+
+  return (
+    <div className="w-full">
+      <ResponsiveContainer width="100%" height={Math.max(280, data.length * 40)}>
+        <BarChart
+          data={data}
+          layout="vertical"
+          margin={{ top: 10, right: 40, left: 120, bottom: 10 }}
+        >
+          <CartesianGrid strokeDasharray="3 3" horizontal={false} />
+          <XAxis
+            type="number"
+            domain={[0, Math.ceil(maxVal * 1.1 * 10000) / 10000]}
+            tickFormatter={(v: number) => v.toFixed(3)}
+            fontSize={11}
+          />
+          <YAxis type="category" dataKey="name" width={110} fontSize={11} />
+          <Tooltip
+            formatter={(value: number, name: string) => {
+              if (name === 'invisible') return [null, null]
+              return [value.toFixed(4), 'Contribution']
+            }}
+            labelFormatter={(label: string) => label}
+          />
+          <ReferenceLine x={waterfall.base} stroke="#888" strokeDasharray="3 3" />
+          {/* Invisible spacer bar */}
+          <Bar dataKey="invisible" stackId="stack" fill="transparent" />
+          {/* Visible contribution bar */}
+          <Bar dataKey="value" stackId="stack" radius={[0, 4, 4, 0]}>
+            {data.map((entry, index) => (
+              <Cell
+                key={index}
+                fill={
+                  entry.isTotal
+                    ? '#6366f1'
+                    : entry.isPositive
+                    ? '#ef4444'
+                    : '#22c55e'
+                }
+              />
+            ))}
+          </Bar>
+        </BarChart>
+      </ResponsiveContainer>
+      <div className="flex gap-4 mt-2 text-xs text-muted-foreground justify-center">
+        <span className="flex items-center gap-1">
+          <span className="w-3 h-3 bg-indigo-500 rounded inline-block" /> Total
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-3 h-3 bg-red-500 rounded inline-block" /> Risk Increasing
+        </span>
+        <span className="flex items-center gap-1">
+          <span className="w-3 h-3 bg-green-500 rounded inline-block" /> Risk Decreasing
+        </span>
+      </div>
+    </div>
+  )
 }
 
 export default function ExplainabilityPage() {
@@ -209,33 +337,13 @@ export default function ExplainabilityPage() {
             </CardContent>
           </Card>
 
-          {/* Waterfall */}
+          {/* Waterfall Chart (Recharts) */}
           <Card>
             <CardHeader>
               <CardTitle>Score Waterfall</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="space-y-2 font-mono text-sm">
-                <div className="flex justify-between border-b pb-1">
-                  <span>Base Score</span>
-                  <span>{result.waterfall.base.toFixed(4)}</span>
-                </div>
-                {result.waterfall.steps.map((step) => (
-                  <div key={step.feature} className="flex justify-between">
-                    <span className="text-muted-foreground">
-                      {step.contribution >= 0 ? '+' : ''}
-                      {step.contribution.toFixed(4)}{' '}
-                      <span className="text-xs">
-                        ({FEATURE_LABELS[step.feature] || step.feature})
-                      </span>
-                    </span>
-                  </div>
-                ))}
-                <div className="flex justify-between border-t pt-1 font-bold">
-                  <span>Final Score</span>
-                  <span>{result.waterfall.final.toFixed(4)}</span>
-                </div>
-              </div>
+              <WaterfallChart waterfall={result.waterfall} />
             </CardContent>
           </Card>
 

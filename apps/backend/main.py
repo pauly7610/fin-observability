@@ -191,6 +191,16 @@ def escalation_job():
 
 
 scheduler.add_job(escalation_job, "interval", hours=1, id="agentic_escalation")
+
+# Start automated retraining pipeline
+from apps.backend.ml.retraining_pipeline import get_retraining_pipeline, RETRAIN_INTERVAL_HOURS
+
+def retraining_job():
+    pipeline = get_retraining_pipeline()
+    result = pipeline.run()
+    logging.info(f"[Retraining Pipeline] {result.get('status')}: {result.get('after_version', 'N/A')}")
+
+scheduler.add_job(retraining_job, "interval", hours=RETRAIN_INTERVAL_HOURS, id="model_retraining")
 scheduler.start()
 
 # Limiter is now created below and imported by routers

@@ -18,11 +18,30 @@ exporters:
     sampling_initial: 5
     sampling_thereafter: 200
 
-  # Uncomment and configure to forward to a managed backend:
-  # otlphttp:
-  #   endpoint: "https://otlp.example.com"
+  # ── Grafana Cloud ──
+  # Uncomment to forward to Grafana Cloud OTLP endpoint.
+  # Set GRAFANA_CLOUD_INSTANCE_ID and GRAFANA_CLOUD_API_KEY as env vars in Railway.
+  # otlphttp/grafana:
+  #   endpoint: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp"
   #   headers:
-  #     Authorization: "Bearer ${OTLP_AUTH_TOKEN}"
+  #     Authorization: "Basic ${GRAFANA_CLOUD_API_KEY}"
+
+  # ── Honeycomb ──
+  # Uncomment to forward to Honeycomb.
+  # Set HONEYCOMB_API_KEY as an env var in Railway.
+  # otlp/honeycomb:
+  #   endpoint: "api.honeycomb.io:443"
+  #   headers:
+  #     x-honeycomb-team: "${HONEYCOMB_API_KEY}"
+
+  # ── Axiom ──
+  # Uncomment to forward to Axiom.
+  # Set AXIOM_API_TOKEN and AXIOM_DATASET as env vars in Railway.
+  # otlphttp/axiom:
+  #   endpoint: "https://api.axiom.co"
+  #   headers:
+  #     Authorization: "Bearer ${AXIOM_API_TOKEN}"
+  #     X-Axiom-Dataset: "${AXIOM_DATASET}"
 
 service:
   pipelines:

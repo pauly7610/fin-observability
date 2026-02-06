@@ -772,6 +772,33 @@ async def retrain_compliance_model(
     return result
 
 
+@router.post("/compliance/retrain/scheduled")
+@limiter.limit("1/minute")
+async def trigger_scheduled_retrain(
+    request: Request,
+    user=Depends(require_role(["admin"])),
+):
+    """
+    Admin-only: Manually trigger the automated retraining pipeline.
+    Same as the scheduled job but on-demand.
+    """
+    from ..ml.retraining_pipeline import get_retraining_pipeline
+
+    pipeline = get_retraining_pipeline()
+    return pipeline.run()
+
+
+@router.get("/compliance/retrain/status")
+async def get_retrain_status(
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """Get the status of the automated retraining pipeline."""
+    from ..ml.retraining_pipeline import get_retraining_pipeline
+
+    pipeline = get_retraining_pipeline()
+    return pipeline.get_status()
+
+
 @router.post("/compliance/explain")
 async def explain_compliance_decision(
     request: Request,

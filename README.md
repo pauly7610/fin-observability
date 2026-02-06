@@ -405,9 +405,23 @@ docker run -p 8000:8000 -e REDIS_URL=redis://host:6379 fin-obs-backend
 - [x] OpenTelemetry Collector deployed as Railway service with configurable OTLP exporters
 - [x] Environment variable configuration (`env.example`)
 
-### Phase 5: Future
-- [ ] Real production dataset integration
-- [ ] Deep learning LSTM with ONNX Runtime inference
-- [ ] SHAP waterfall charts in frontend (recharts)
-- [ ] Automated retraining pipeline on schedule
-- [ ] Forward telemetry to managed backend (Grafana Cloud / Honeycomb)
+### Phase 5: ✅ Complete
+- [x] Enhanced production dataset (10K transactions, account profiles, temporal patterns, geo risk, velocity features)
+- [x] 2-Layer PCA-Autoencoder with ONNX Runtime inference (~2x faster scoring)
+- [x] SHAP waterfall charts in frontend (Recharts BarChart with stacked waterfall)
+- [x] Automated retraining pipeline (weekly schedule via APScheduler, configurable via `RETRAIN_SCHEDULE_HOURS`)
+- [x] OTel Collector forwarding configs for Grafana Cloud, Honeycomb, and Axiom (pre-configured, env var driven)
+
+### New API Endpoints (Phase 5)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agent/compliance/retrain/scheduled` | POST | Manually trigger the automated retraining pipeline |
+| `/agent/compliance/retrain/status` | GET | Get retraining pipeline status and schedule |
+
+### Phase 6: Future
+- [ ] Real production dataset integration (live data feeds)
+- [ ] Deep learning LSTM autoencoder (PyTorch + ONNX export)
+- [ ] Grafana Cloud dashboard integration
+- [ ] Automated CI/CD retraining on data drift detection
+- [ ] Multi-tenant account isolation
