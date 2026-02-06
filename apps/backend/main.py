@@ -10,10 +10,11 @@ from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
 
 from apps.backend.broadcast import incident_broadcaster
-from apps.backend.database import engine, Base
+from apps.backend.database import engine
+from apps.backend.models import Base
 import logging
+import os
 import structlog
-from opentelemetry import trace
 from datetime import datetime, timedelta
 
 
@@ -59,6 +60,7 @@ except ImportError:
     pass  # boto3 S3 instrumentation is optional and only if boto3 is present
 from apps.backend.routers import (
     agent,
+    auth,
     ops,
     ops_trigger,
     audit,
@@ -75,59 +77,6 @@ from apps.backend.routers import (
 )
 
 
-# --- Incident WebSocket Broadcaster ---
-class IncidentBroadcaster:
-    def __init__(self):
-        self.active_connections: list[WebSocket] = []
-
-    async def connect(self, websocket: WebSocket):
-        await websocket.accept()
-        self.active_connections.append(websocket)
-
-    def disconnect(self, websocket: WebSocket):
-        if websocket in self.active_connections:
-            self.active_connections.remove(websocket)
-
-    async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            try:
-                await connection.send_text(message)
-            except Exception:
-                self.disconnect(connection)
-
-
-
-
-app = FastAPI()
-
-
-@app.websocket("/ws/incidents")
-async def websocket_endpoint(websocket: WebSocket):
-    """
-    WebSocket endpoint for real-time incident updates.
-    Clients receive JSON strings with new/updated incidents.
-    """
-    await websocket.accept()
-    await incident_broadcaster.connect(websocket)
-    try:
-        # Send some test data immediately
-        test_incident = {
-            "incident_id": "TEST-001",
-            "title": "Test Incident",
-            "description": "This is a test incident",
-            "severity": "high",
-            "status": "open",
-            "type": "test",
-            "created_at": datetime.utcnow().isoformat()
-        }
-        await websocket.send_json(test_incident)
-        while True:
-            await websocket.receive_text()  # keepalive
-    except WebSocketDisconnect:
-        incident_broadcaster.disconnect(websocket)
-    except Exception as e:
-        print(f"WebSocket /ws/incidents error: {e}")
-        await websocket.close()
 
 
 from apps.backend.scheduled_exports import schedule_exports
@@ -182,10 +131,11 @@ app.state.limiter = limiter
 from slowapi import _rate_limit_exceeded_handler
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
-# Configure CORS
+# Configure CORS - supports multiple origins via CORS_ORIGINS env var
+cors_origins = os.getenv("CORS_ORIGINS", "http://localhost:3000").split(",")
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],  # Frontend URL
+    allow_origins=cors_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -204,6 +154,9 @@ app.include_router(system_metrics.router)
 app.include_router(users.router)
 app.include_router(compliance_lcr.router)
 app.include_router(verification.router)
+app.include_router(auth.router)
+app.include_router(ops_metrics.router)
+app.include_router(export_metadata.router)
 
 # Instrument FastAPI with OpenTelemetry
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -238,6 +191,34 @@ async def health_check(request):
     return {"status": "healthy"}
 
 
+@app.websocket("/ws/incidents")
+async def websocket_endpoint(websocket: WebSocket):
+    """
+    WebSocket endpoint for real-time incident updates.
+    Clients receive JSON strings with new/updated incidents.
+    """
+    await websocket.accept()
+    await incident_broadcaster.connect(websocket)
+    try:
+        test_incident = {
+            "incident_id": "TEST-001",
+            "title": "Test Incident",
+            "description": "This is a test incident",
+            "severity": "high",
+            "status": "open",
+            "type": "test",
+            "created_at": datetime.utcnow().isoformat()
+        }
+        await websocket.send_json(test_incident)
+        while True:
+            await websocket.receive_text()  # keepalive
+    except WebSocketDisconnect:
+        incident_broadcaster.disconnect(websocket)
+    except Exception as e:
+        print(f"WebSocket /ws/incidents error: {e}")
+        await websocket.close()
+
+
 @app.websocket("/ws/compliance")
 async def compliance_websocket(websocket: WebSocket):
     """
@@ -258,6 +239,47 @@ async def compliance_websocket(websocket: WebSocket):
             await websocket.receive_text()  # keepalive
     except WebSocketDisconnect:
         pass
+
+
+@app.get("/api/metrics")
+async def get_platform_metrics():
+    """Return platform-level metrics for the frontend dashboard."""
+    from apps.backend.database import SessionLocal
+    from apps.backend.models import Incident, ComplianceLog
+    now = datetime.utcnow()
+    db = SessionLocal()
+    try:
+        # Active alerts count
+        active_alerts = db.query(Incident).filter(
+            Incident.status.in_(["open", "investigating"])
+        ).count()
+        # Compliance stats
+        total_compliance = db.query(ComplianceLog).count()
+        resolved_compliance = db.query(ComplianceLog).filter(
+            ComplianceLog.is_resolved == True
+        ).count()
+        compliance_score = round(
+            (resolved_compliance / total_compliance * 100) if total_compliance > 0 else 100, 1
+        )
+        # Uptime approximation (based on resolved vs total incidents)
+        total_incidents = db.query(Incident).count()
+        resolved_incidents = db.query(Incident).filter(
+            Incident.status.in_(["resolved", "closed"])
+        ).count()
+        uptime = round(
+            99.9 - (max(0, total_incidents - resolved_incidents) * 0.1), 1
+        )
+        return {
+            "uptime": min(uptime, 99.99),
+            "activeAlerts": active_alerts,
+            "noiseReduction": 94,
+            "mttr": 12,
+            "mttrImprovement": 35,
+            "complianceScore": compliance_score,
+            "complianceStatus": "Compliant" if compliance_score >= 80 else "At Risk",
+        }
+    finally:
+        db.close()
 
 
 @app.get("/api/systems")

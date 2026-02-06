@@ -1,8 +1,3 @@
-from langchain_openai import ChatOpenAI
-from pydantic import BaseModel
-from typing import Any
-from langgraph.graph import StateGraph
-from langchain_core.tools import tool
 from typing import Dict, Any
 import logging
 from opentelemetry import trace
@@ -11,7 +6,6 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
-@tool
 def check_compliance(transaction: str) -> dict:
     """Check if a transaction or event violates compliance rules, with risk, confidence, rationale, and recommendation."""
     text = transaction.lower()
@@ -45,72 +39,24 @@ def check_compliance(transaction: str) -> dict:
         }
 
 
-@tool
-def recommend_compliance_action(transaction: str) -> dict:
-    """Recommend a compliance action based on transaction details, with risk, confidence, rationale, and recommendation."""
-    text = transaction.lower()
-    if "flag" in text or "escalate" in text:
-        return {
-            "risk_level": "medium",
-            "confidence": 0.9,
-            "rationale": "Flag/escalate detected in transaction details.",
-            "recommendation": "Notify compliance officer and require manual review.",
-        }
-    elif "approve" in text:
-        return {
-            "risk_level": "low",
-            "confidence": 0.99,
-            "rationale": "Transaction is approved.",
-            "recommendation": "Auto-approve.",
-        }
-    else:
-        return {
-            "risk_level": "low",
-            "confidence": 0.95,
-            "rationale": "No compliance action required.",
-            "recommendation": "Monitor transaction.",
-        }
-
-
 class ComplianceAutomationService:
-    def __init__(self):
-        self.llm = ChatOpenAI(temperature=0)
-        self.tools = [check_compliance, recommend_compliance_action]
-        # Removed unsupported create_react_agent and workflow setup due to missing function in current langgraph version.
-
     def automate_compliance(
         self, transaction: Dict[str, Any], user_id: str = None
     ) -> dict:
-        prompt = (
-            "Given the following transaction or event, check for compliance issues using the check_compliance tool, "
-            "and recommend a compliance action using the recommend_compliance_action tool. "
-            f"Transaction: {transaction}"
-        )
         transaction_id = transaction.get("transaction_id", "unknown")
+        transaction_str = str(transaction)
         with tracer.start_as_current_span("agent.automate_compliance") as span:
             span.set_attribute("transaction.id", transaction_id)
             if user_id is not None:
                 span.set_attribute("user.id", user_id)
-            span.set_attribute("llm.input_size", len(str(prompt)))
+            span.set_attribute("input_size", len(transaction_str))
             try:
-                result = self.workflow.invoke({"input": prompt})
-                output = result.get("output", str(result))
-                if isinstance(output, dict):
-                    span.set_attribute("llm.result_type", "dict")
-                    return output
-                else:
-                    span.set_attribute("llm.result_type", "unstructured")
-                    return {
-                        "risk_level": "unknown",
-                        "confidence": 0.0,
-                        "rationale": "Agent returned unstructured output.",
-                        "recommendation": output,
-                    }
+                result = check_compliance(transaction_str)
+                span.set_attribute("result.risk_level", result.get("risk_level", "unknown"))
+                return result
             except Exception as e:
                 span.record_exception(e)
-                from apps.backend.main import get_logger
-
-                get_logger(__name__).error("Compliance automation failed", error=str(e))
+                logger.error(f"Compliance automation failed: {str(e)}")
                 return {
                     "risk_level": "error",
                     "confidence": 0.0,

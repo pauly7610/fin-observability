@@ -1,13 +1,15 @@
 from fastapi import APIRouter, HTTPException, Depends, Request
 from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from ..services.agent_service import AgenticTriageService
 from ..services.incident_remediation_service import IncidentRemediationService
 from ..services.compliance_automation_service import ComplianceAutomationService
 from ..services.audit_summary_service import AuditSummaryService
 from ..services.agentic_workflow_service import AgenticWorkflowService
 from ..services.basel_compliance_service import BaselComplianceService
+from ..services.metrics_service import get_metrics_service
+from ..ml.anomaly_detector import get_detector
 from ..security import require_role
 from ..schemas import (
     AgentActionCreate,
@@ -22,6 +24,7 @@ from ..schemas import (
 from ..models import AgentAction as AgentActionModel
 from ..database import get_db
 import logging
+import random
 from datetime import datetime
 from apps.backend import siem
 import os
@@ -71,13 +74,14 @@ async def triage_incident(
         },
     )
     try:
+        import json as _json
         result = agent_service.triage_incident(incident)
         agent_action = AgentActionModel(
             incident_id=incident.get("incident_id", "unknown"),
             action="triage",
-            agent_result=result,
+            agent_result=_json.dumps(result) if isinstance(result, dict) else str(result),
             status="pending",
-            submitted_by=incident.get("submitted_by"),
+            submitted_by=None,
             created_at=datetime.utcnow(),
             meta=incident,
             ai_explanation=(
@@ -475,12 +479,12 @@ async def monitor_transaction_compliance(
     FINRA 4511 compliant transaction monitoring with agent orchestration.
     
     This endpoint:
-    1. Runs anomaly detection using heuristics/ML
+    1. Runs anomaly detection using Isolation Forest ML model
     2. Checks compliance rules (FINRA, SEC)
     3. Makes approval/block/review decision with reasoning
-    4. Logs full audit trail
+    4. Logs full audit trail and tracks metrics
     
-    Returns decision with confidence scores and alternatives.
+    Returns decision with confidence scores, alternatives, and feature analysis.
     """
     with tracer.start_as_current_span("agent.compliance.monitor") as span:
         span.set_attribute("transaction_id", txn.id)
@@ -495,12 +499,22 @@ async def monitor_transaction_compliance(
         )
         
         try:
-            # Step 1: Calculate anomaly score using heuristics
-            anomaly_score = _calculate_anomaly_score(txn)
+            # Step 1: Calculate anomaly score using ML model
+            detector = get_detector()
+            anomaly_score, feature_details = detector.predict(
+                amount=txn.amount,
+                timestamp=txn.timestamp,
+                txn_type=txn.type
+            )
             span.set_attribute("anomaly_score", anomaly_score)
+            span.set_attribute("model_version", feature_details.get("model_version", "unknown"))
             
             # Step 2: Check compliance rules
             compliance_violation = _check_compliance_rules(txn)
+            
+            # Build risk factors string for reasoning
+            risk_factors = feature_details.get("risk_factors", [])
+            risk_str = "; ".join(risk_factors) if risk_factors else "None identified"
             
             # Step 3: Make decision
             if compliance_violation:
@@ -519,7 +533,7 @@ async def monitor_transaction_compliance(
                 decision = ComplianceDecisionResponse(
                     action="manual_review",
                     confidence=85.0,
-                    reasoning=f"High anomaly score ({anomaly_score:.3f}) requires human review. Statistical outlier detected - unusual transaction pattern.",
+                    reasoning=f"High anomaly score ({anomaly_score:.3f}) requires human review. Risk factors: {risk_str}. Model: IsolationForest v{feature_details.get('model_version', '2.0.0')}",
                     alternatives=[
                         AlternativeAction(
                             action="approve",
@@ -538,6 +552,24 @@ async def monitor_transaction_compliance(
                         agent="AnomalyDetector"
                     )
                 )
+            elif anomaly_score > 0.4:
+                decision = ComplianceDecisionResponse(
+                    action="approve",
+                    confidence=75.0,
+                    reasoning=f"Transaction approved with elevated monitoring. Anomaly score: {anomaly_score:.3f}. Risk factors: {risk_str}",
+                    alternatives=[
+                        AlternativeAction(
+                            action="manual_review",
+                            confidence=0.2,
+                            reasoning="Borderline score may warrant review"
+                        )
+                    ],
+                    audit_trail=AuditTrail(
+                        regulation="FINRA_4511",
+                        timestamp=datetime.utcnow(),
+                        agent="ComplianceChecker"
+                    )
+                )
             else:
                 decision = ComplianceDecisionResponse(
                     action="approve",
@@ -554,7 +586,11 @@ async def monitor_transaction_compliance(
             span.set_attribute("decision", decision.action)
             span.set_attribute("confidence", decision.confidence)
             
-            # Increment compliance action metric
+            # Track metrics in Redis
+            metrics_service = get_metrics_service()
+            metrics_service.increment_transaction(decision.action, decision.confidence)
+            
+            # Increment OpenTelemetry compliance action metric
             from apps.backend.main import compliance_action_counter
             compliance_action_counter.add(
                 1,
@@ -574,18 +610,177 @@ async def get_compliance_agent_status():
     """
     Health check endpoint for compliance agent.
     """
+    detector = get_detector()
+    model_info = detector.get_model_info()
+    
     return ComplianceStatusResponse(
         status="operational",
         agent="FinancialComplianceAgent",
-        version="1.0.0",
+        version=model_info.get("version", "2.0.0"),
         regulations=["FINRA_4511", "SEC_17a4"],
         features=[
-            "anomaly_detection",
+            "isolation_forest_ml",
             "compliance_rules",
             "audit_trails",
-            "human_in_the_loop"
+            "human_in_the_loop",
+            "redis_metrics"
         ]
     )
+
+
+@router.get("/compliance/metrics")
+async def get_compliance_metrics():
+    """
+    Get real-time compliance monitoring metrics from Redis.
+    
+    Returns:
+        - Total transactions processed
+        - Approval/block/review rates
+        - Average confidence score
+        - Confidence percentiles (p50, p90, p99)
+    """
+    metrics_service = get_metrics_service()
+    metrics = metrics_service.get_metrics()
+    
+    # Add model info
+    detector = get_detector()
+    model_info = detector.get_model_info()
+    metrics["model"] = model_info
+    
+    return metrics
+
+
+@router.post("/compliance/metrics/reset")
+async def reset_compliance_metrics(
+    user=Depends(require_role(["admin"]))
+):
+    """
+    Admin-only: Reset all compliance metrics counters.
+    """
+    metrics_service = get_metrics_service()
+    result = metrics_service.reset_metrics()
+    return result
+
+
+@router.post("/compliance/test-batch")
+@limiter.limit("2/minute")
+async def run_compliance_test_batch(
+    request: Request,
+    count: int = 100,
+):
+    """
+    Generate and test synthetic transactions for validation.
+    
+    Args:
+        count: Number of transactions to generate (default 100, max 500)
+    
+    Distribution:
+        - 70% normal: $100-$5000, business hours, weekdays
+        - 20% suspicious: $10k-$50k, off-hours or weekends
+        - 10% violations: $100k+, any time
+    
+    Returns:
+        Aggregated results and individual transaction details.
+    """
+    count = min(count, 500)  # Cap at 500
+    
+    results = {
+        "total": count,
+        "approved": 0,
+        "blocked": 0,
+        "manual_review": 0,
+        "avg_confidence": 0.0,
+        "transactions": []
+    }
+    
+    confidences = []
+    detector = get_detector()
+    metrics_service = get_metrics_service()
+    
+    for i in range(count):
+        rand = random.random()
+        
+        if rand < 0.7:
+            # Normal transaction
+            amount = random.randint(100, 5000)
+            hour = random.randint(9, 17)
+            day = random.randint(0, 4)  # Weekday
+            txn_type = random.choice(["ach", "internal", "wire"])
+        elif rand < 0.9:
+            # Suspicious transaction
+            amount = random.randint(10000, 50000)
+            hour = random.choice([random.randint(0, 5), random.randint(22, 23)])
+            day = random.randint(0, 6)
+            txn_type = random.choice(["wire", "ach"])
+        else:
+            # Violation transaction
+            amount = random.randint(100000, 200000)
+            hour = random.randint(0, 23)
+            day = random.randint(0, 6)
+            txn_type = "wire"
+        
+        # Create timestamp for the transaction
+        now = datetime.utcnow()
+        timestamp = now.replace(
+            hour=hour,
+            minute=random.randint(0, 59),
+            second=random.randint(0, 59)
+        )
+        # Adjust day of week (this is simplified - just for testing)
+        
+        # Get anomaly score
+        anomaly_score, feature_details = detector.predict(
+            amount=amount,
+            timestamp=timestamp,
+            txn_type=txn_type
+        )
+        
+        # Check compliance rules
+        compliance_violation = None
+        if amount > 100000:
+            compliance_violation = {
+                "rule": "FINRA_4511_LARGE_TRANSACTION",
+                "description": "Transactions over $100,000 require manual compliance review"
+            }
+        
+        # Determine action
+        if compliance_violation:
+            action = "blocked"
+            confidence = 95.0
+        elif anomaly_score > 0.7:
+            action = "manual_review"
+            confidence = 85.0
+        elif anomaly_score > 0.4:
+            action = "approved"
+            confidence = 75.0
+        else:
+            action = "approved"
+            confidence = 90.0
+        
+        results[action] += 1
+        confidences.append(confidence)
+        
+        # Track in metrics
+        metrics_service.increment_transaction(action, confidence)
+        
+        # Add to results (limit detail to first 20)
+        if len(results["transactions"]) < 20:
+            results["transactions"].append({
+                "id": f"test_{i}",
+                "amount": amount,
+                "type": txn_type,
+                "hour": hour,
+                "anomaly_score": round(anomaly_score, 3),
+                "action": action,
+                "confidence": confidence
+            })
+    
+    results["avg_confidence"] = round(sum(confidences) / len(confidences), 2)
+    results["approval_rate"] = round(results["approved"] / count * 100, 2)
+    results["block_rate"] = round(results["blocked"] / count * 100, 2)
+    results["manual_review_rate"] = round(results["manual_review"] / count * 100, 2)
+    
+    return results
 
 
 def _calculate_anomaly_score(txn: ComplianceMonitorTransaction) -> float:

@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 interface Transaction {
   id: string;
@@ -35,10 +35,92 @@ interface TestTransaction extends Transaction {
   label: string;
 }
 
+interface ComplianceMetrics {
+  total_transactions: number;
+  approved: number;
+  blocked: number;
+  manual_review: number;
+  approval_rate: number;
+  block_rate: number;
+  manual_review_rate: number;
+  avg_confidence: number;
+  storage: string;
+  model?: {
+    version: string;
+    algorithm: string;
+    features: string[];
+    training_samples: number;
+  };
+}
+
+interface TestBatchResult {
+  total: number;
+  approved: number;
+  blocked: number;
+  manual_review: number;
+  approval_rate: number;
+  block_rate: number;
+  manual_review_rate: number;
+  avg_confidence: number;
+  transactions: Array<{
+    id: string;
+    amount: number;
+    type: string;
+    hour: number;
+    anomaly_score: number;
+    action: string;
+    confidence: number;
+  }>;
+}
+
 export function AgentComplianceMonitor() {
   const [result, setResult] = useState<ComplianceResult | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [metrics, setMetrics] = useState<ComplianceMetrics | null>(null);
+  const [metricsLoading, setMetricsLoading] = useState(false);
+  const [testBatchResult, setTestBatchResult] = useState<TestBatchResult | null>(null);
+  const [testBatchLoading, setTestBatchLoading] = useState(false);
+  
+  // Fetch metrics on mount and after actions
+  const fetchMetrics = async () => {
+    setMetricsLoading(true);
+    try {
+      const response = await fetch('http://localhost:8000/agent/compliance/metrics');
+      if (response.ok) {
+        const data = await response.json();
+        setMetrics(data);
+      }
+    } catch (err) {
+      console.error('Failed to fetch metrics:', err);
+    } finally {
+      setMetricsLoading(false);
+    }
+  };
+  
+  useEffect(() => {
+    fetchMetrics();
+  }, []);
+  
+  const runTestBatch = async () => {
+    setTestBatchLoading(true);
+    setTestBatchResult(null);
+    try {
+      const response = await fetch('http://localhost:8000/agent/compliance/test-batch?count=100', {
+        method: 'POST'
+      });
+      if (response.ok) {
+        const data = await response.json();
+        setTestBatchResult(data);
+        // Refresh metrics after test batch
+        fetchMetrics();
+      }
+    } catch (err) {
+      console.error('Test batch failed:', err);
+    } finally {
+      setTestBatchLoading(false);
+    }
+  };
   
   const testTransactions: TestTransaction[] = [
     {
@@ -91,6 +173,8 @@ export function AgentComplianceMonitor() {
       
       const data = await response.json();
       setResult(data);
+      // Refresh metrics after compliance check
+      fetchMetrics();
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to check compliance');
       console.error('Compliance check failed:', err);
@@ -126,9 +210,99 @@ export function AgentComplianceMonitor() {
             SEC 17a-4
           </span>
           <span className="px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-300">
-            Isolation Forest ML
+            Isolation Forest ML v{metrics?.model?.version || '2.0.0'}
           </span>
         </div>
+      </div>
+      
+      {/* Metrics Dashboard */}
+      <div className="mb-6">
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="font-semibold text-gray-700">📊 Performance Metrics</h3>
+          <button
+            onClick={fetchMetrics}
+            disabled={metricsLoading}
+            className="text-xs text-blue-600 hover:text-blue-800"
+          >
+            {metricsLoading ? 'Refreshing...' : '🔄 Refresh'}
+          </button>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
+            <div className="text-xs text-gray-500 mb-1">Total Processed</div>
+            <div className="text-xl font-bold text-gray-900">
+              {metrics?.total_transactions ?? 0}
+            </div>
+          </div>
+          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
+            <div className="text-xs text-gray-500 mb-1">Auto-Approved</div>
+            <div className="text-xl font-bold text-green-700">
+              {metrics?.approval_rate ?? 0}%
+            </div>
+          </div>
+          <div className="bg-red-50 p-3 rounded-lg border border-red-200">
+            <div className="text-xs text-gray-500 mb-1">Blocked</div>
+            <div className="text-xl font-bold text-red-700">
+              {metrics?.block_rate ?? 0}%
+            </div>
+          </div>
+          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
+            <div className="text-xs text-gray-500 mb-1">Avg Confidence</div>
+            <div className="text-xl font-bold text-blue-700">
+              {metrics?.avg_confidence ?? 0}%
+            </div>
+          </div>
+        </div>
+        {metrics?.storage && (
+          <div className="mt-2 text-xs text-gray-400">
+            Storage: {metrics.storage} | Model: {metrics?.model?.algorithm || 'IsolationForest'}
+          </div>
+        )}
+      </div>
+      
+      {/* Test Batch Section */}
+      <div className="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="font-semibold text-amber-800">🧪 Batch Testing</h3>
+            <p className="text-xs text-amber-700 mt-1">
+              Run 100 synthetic transactions to validate model performance
+            </p>
+          </div>
+          <button
+            onClick={runTestBatch}
+            disabled={testBatchLoading}
+            className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
+              testBatchLoading
+                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                : 'bg-amber-600 text-white hover:bg-amber-700'
+            }`}
+          >
+            {testBatchLoading ? 'Running...' : 'Run Test Batch'}
+          </button>
+        </div>
+        {testBatchResult && (
+          <div className="mt-4 p-3 bg-white rounded border border-amber-200">
+            <div className="grid grid-cols-4 gap-2 text-center text-sm">
+              <div>
+                <div className="font-bold text-green-600">{testBatchResult.approval_rate}%</div>
+                <div className="text-xs text-gray-500">Approved</div>
+              </div>
+              <div>
+                <div className="font-bold text-yellow-600">{testBatchResult.manual_review_rate}%</div>
+                <div className="text-xs text-gray-500">Review</div>
+              </div>
+              <div>
+                <div className="font-bold text-red-600">{testBatchResult.block_rate}%</div>
+                <div className="text-xs text-gray-500">Blocked</div>
+              </div>
+              <div>
+                <div className="font-bold text-blue-600">{testBatchResult.avg_confidence}%</div>
+                <div className="text-xs text-gray-500">Confidence</div>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
       
       {/* Transaction Selector */}

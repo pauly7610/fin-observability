@@ -130,25 +130,25 @@ class Incident(IncidentBase):
 class AgentActionBase(BaseModel):
     incident_id: str
     action: str
-    agent_result: str
-    meta: dict = {}
-    assigned_to: int = None
+    agent_result: Optional[str] = None
+    meta: Optional[dict] = {}
+    assigned_to: Optional[int] = None
     is_escalated: bool = False
-    escalated_at: datetime = None
-    escalation_reason: str = None
+    escalated_at: Optional[datetime] = None
+    escalation_reason: Optional[str] = None
     approvals_required: int = 1
-    approvals: list = []
+    approvals: Optional[list] = []
     is_fully_approved: bool = False
-    fully_approved_at: datetime = None
-    approval_roles: list = []
-    approval_order: list = []
+    fully_approved_at: Optional[datetime] = None
+    approval_roles: Optional[list] = []
+    approval_order: Optional[list] = []
     current_approval_index: int = 0
     # Agentic explainability and attribution fields
-    ai_explanation: str = None
-    agent_input: dict = None
-    agent_output: dict = None
-    agent_version: str = None
-    actor_type: str = None
+    ai_explanation: Optional[str] = None
+    agent_input: Optional[dict] = None
+    agent_output: Optional[dict] = None
+    agent_version: Optional[str] = None
+    actor_type: Optional[str] = None
     is_simulation: bool = False
 
 
@@ -185,22 +185,22 @@ class AgentActionUpdate(BaseModel):
 class AgentAction(AgentActionBase):
     id: int
     status: str
-    submitted_by: int = None
-    approved_by: int = None
+    submitted_by: Optional[int] = None
+    approved_by: Optional[int] = None
     created_at: datetime
-    approved_at: datetime = None
-    assigned_to: int = None
+    approved_at: Optional[datetime] = None
+    assigned_to: Optional[int] = None
     is_escalated: bool = False
-    escalated_at: datetime = None
-    escalation_reason: str = None
+    escalated_at: Optional[datetime] = None
+    escalation_reason: Optional[str] = None
     approvals_required: int = 1
-    approvals: list = []
+    approvals: Optional[list] = []
     is_fully_approved: bool = False
-    fully_approved_at: datetime = None
-    approval_roles: list = []
-    approval_order: list = []
+    fully_approved_at: Optional[datetime] = None
+    approval_roles: Optional[list] = []
+    approval_order: Optional[list] = []
     current_approval_index: int = 0
-    override_type: str = None
+    override_type: Optional[str] = None
 
     class Config:
         from_attributes = True

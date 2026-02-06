@@ -1,8 +1,4 @@
-from langchain_openai import ChatOpenAI
-from langgraph.graph import StateGraph, END
-from langchain_core.tools import tool
 from typing import Dict, Any
-from pydantic import BaseModel
 import logging
 from opentelemetry import trace
 
@@ -10,8 +6,6 @@ logger = logging.getLogger(__name__)
 tracer = trace.get_tracer(__name__)
 
 
-# Define tools using @tool decorator for LangGraph compatibility
-@tool
 def classify_incident(incident: str) -> dict:
     """Classifies the severity of an incident as low, medium, or high based on its description, with confidence and rationale."""
     text = incident.lower()
@@ -35,48 +29,20 @@ def classify_incident(incident: str) -> dict:
         }
 
 
-@tool
-def echo(input_str: str) -> str:
-    """Echoes the input."""
-    return input_str
-
-
-class TriageState(BaseModel):
-    input: str
-    output: Any = None
-
-
 class AgenticTriageService:
-    def __init__(self):
-        self.llm = ChatOpenAI(temperature=0)
-        self.tools = [classify_incident, echo]
-
     def triage_incident(self, incident: Dict[str, Any]) -> dict:
-        prompt = (
-            "Given the following incident or anomaly, classify its severity using the classify_incident tool, "
-            "and recommend remediation steps using the recommend_remediation tool. "
-            f"Incident: {incident}"
-        )
         incident_id = incident.get("incident_id", "unknown")
+        user_id = incident.get("user_id")
+        incident_str = str(incident)
         with tracer.start_as_current_span("agent.triage_incident") as span:
             span.set_attribute("incident.id", incident_id)
             if user_id is not None:
-                span.set_attribute("user.id", user_id)
-            span.set_attribute("llm.input_size", len(str(prompt)))
+                span.set_attribute("user.id", str(user_id))
+            span.set_attribute("input_size", len(incident_str))
             try:
-                result = self.workflow.invoke({"input": prompt})
-                output = result.get("output", str(result))
-                if isinstance(output, dict):
-                    span.set_attribute("llm.result_type", "dict")
-                    return output
-                else:
-                    span.set_attribute("llm.result_type", "unstructured")
-                    return {
-                        "risk_level": "unknown",
-                        "confidence": 0.0,
-                        "rationale": "Agent returned unstructured output.",
-                        "recommendation": output,
-                    }
+                result = classify_incident(incident_str)
+                span.set_attribute("result.risk_level", result.get("risk_level", "unknown"))
+                return result
             except Exception as e:
                 span.record_exception(e)
                 logger.error(f"Agentic triage failed: {str(e)}")

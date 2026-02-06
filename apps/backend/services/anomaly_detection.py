@@ -67,13 +67,13 @@ class AnomalyDetectionService:
                 model.fit(X_scaled)
                 scores = -model.score_samples(X_scaled)  # Negative scores for anomalies
                 predictions = model.predict(X_scaled)
-                anomaly_flags = [pred == -1 for pred in predictions]
+                anomaly_flags = [bool(pred == -1) for pred in predictions]
             else:  # KNN
                 predictions = model.fit_predict(X_scaled)
                 scores = (
                     -model.negative_outlier_factor_
                 )  # Negative scores for anomalies
-                anomaly_flags = [pred == -1 for pred in predictions]
+                anomaly_flags = [bool(pred == -1) for pred in predictions]
 
             # Prepare meta
             model_meta = {

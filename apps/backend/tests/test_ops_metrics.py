@@ -5,9 +5,6 @@ import pytest
 client = TestClient(app)
 
 
-client = TestClient(app)
-
-
 def test_mttr_empty():
     resp = client.get(
         "/ops_metrics/mttr?days=1",

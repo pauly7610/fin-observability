@@ -18,33 +18,6 @@ logger = logging.getLogger(__name__)
 
 @router.post("/logs", response_model=ComplianceLog)
 async def create_compliance_log(
-    log: dict,
-    db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "compliance"])),
-) -> ComplianceLog:
-    try:
-        new_log = ComplianceLogModel(**log)
-        db.add(new_log)
-        db.commit()
-        db.refresh(new_log)
-        from apps.backend import siem
-
-        siem.send_syslog_event(
-            event="Compliance log created",
-            host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
-            port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
-            extra={
-                "log_id": new_log.id,
-                "user": str(user.get("id") if hasattr(user, "id") else user),
-            },
-        )
-        return new_log
-    except Exception as e:
-        get_logger(__name__).error("Error creating compliance log", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def create_compliance_log(
     log: ComplianceLogCreate,
     db: Session = Depends(get_db),
     user=Depends(require_role(["admin", "compliance"])),
@@ -63,12 +36,12 @@ async def create_compliance_log(
             port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
             extra={
                 "log_id": new_log.id,
-                "user": str(user.get("id") if hasattr(user, "id") else user),
+                "user": str(getattr(user, "id", None)),
             },
         )
         return new_log
     except Exception as e:
-        get_logger(__name__).error("Error creating compliance log", error=str(e))
+        logger.error(f"Error creating compliance log: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 
@@ -99,8 +72,6 @@ async def get_compliance_logs(
         logger.error(f"Error fetching compliance logs: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
-
-from ..security import require_role
 
 
 @router.get("/export")
@@ -219,42 +190,12 @@ async def export_compliance_logs(
 @router.put("/logs/{log_id}/resolve")
 async def resolve_compliance_log(
     log_id: int,
-    db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "compliance"])),
-) -> ComplianceLog:
-    try:
-        log = (
-            db.query(ComplianceLogModel).filter(ComplianceLogModel.id == log_id).first()
-        )
-        if not log:
-            raise HTTPException(status_code=404, detail="Log not found")
-        log.is_resolved = True
-        db.commit()
-        from apps.backend import siem
-
-        siem.send_syslog_event(
-            event="Compliance log resolved",
-            host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
-            port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
-            extra={
-                "log_id": log_id,
-                "user": str(user.get("id") if hasattr(user, "id") else user),
-            },
-        )
-        return log
-    except Exception as e:
-        get_logger(__name__).error("Error resolving compliance log", error=str(e))
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-async def resolve_compliance_log(
-    log_id: int,
-    resolution_notes: str,
+    resolution_notes: str = None,
     db: Session = Depends(get_db),
     user=Depends(require_role(["admin", "compliance"])),
 ):
     """
-    Mark a compliance log as resolved with resolution notes.
+    Mark a compliance log as resolved with optional resolution notes.
     """
     try:
         log = (
@@ -262,15 +203,25 @@ async def resolve_compliance_log(
         )
         if not log:
             raise HTTPException(status_code=404, detail="Compliance log not found")
-
         log.is_resolved = True
-        log.resolution_notes = resolution_notes
+        if resolution_notes:
+            log.resolution_notes = resolution_notes
         db.commit()
-        return {"status": "success", "message": "Compliance log resolved"}
+        db.refresh(log)
+        siem.send_syslog_event(
+            event="Compliance log resolved",
+            host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
+            port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
+            extra={
+                "log_id": log_id,
+                "user": str(getattr(user, "id", None)),
+            },
+        )
+        return log
     except HTTPException:
         raise
     except Exception as e:
-        get_logger(__name__).error("Error resolving compliance log", error=str(e))
+        logger.error(f"Error resolving compliance log: {str(e)}")
         raise HTTPException(status_code=500, detail=str(e))
 
 

@@ -9,7 +9,7 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 - Real-time anomaly detection using Isolation Forest and KNN models
 - Compliance monitoring with SEC 17a-4 and FINRA 4511 audit trails
 - **Financial Compliance Agent** - AI-powered transaction monitoring with governance/audit trails
-- Agentic AI capabilities with LangChain for incident triage and remediation
+- Agentic AI capabilities for incident triage, remediation, compliance automation, and audit summarization (works without OpenAI key via heuristic fallback)
 - OpenTelemetry instrumentation compatible with ITRS Geneos platform
 - Kafka streaming stubs for event ingestion
 - Next.js frontend with real-time dashboard and compliance badges
@@ -95,15 +95,17 @@ Sensitive actions and exports are protected by a robust approval workflow. All m
 
 ### Backend Development
 
-- **Environment Variables**: Copy `.env.example` to `.env` and update values
+- **Environment Variables**: Copy `apps/backend/env.example` to `apps/backend/.env` and update values
 - **Migrations**: `alembic upgrade head`
-- **Testing**: `pytest`
+- **Testing**: `pytest apps/backend/tests/ -v`
+- **Note**: LLM services (triage, remediation, compliance, audit) work without an `OPENAI_API_KEY` using keyword-matching heuristics
 
 ### Frontend Development
 
-- **Environment Variables**: Update `.env.local` as needed
+- **Environment Variables**: Copy `apps/frontend/env.example` to `apps/frontend/.env.local` and update values
 - **Linting**: `npm run lint`
 - **Testing**: `npm test`
+- **Install types**: `@types/node`, `@types/react`, `@types/react-dom` are in devDependencies — run `npm install` to resolve TS errors
 
 ## Troubleshooting
 
@@ -125,31 +127,42 @@ Sensitive actions and exports are protected by a robust approval workflow. All m
 
 Proprietary - All rights reserved
 
-## Getting Started
+## Authentication
 
-Prerequisites
-Node.js 20.x
+The platform supports two authentication modes:
 
-Python 3.12.x
+- **Header-based (default for development)**: Set `x-user-email` and `x-user-role` headers
+- **JWT (production)**: Use `POST /auth/login` to get a Bearer token, then pass `Authorization: Bearer <token>`
 
-PostgreSQL 15.x
+Set `AUTH_MODE=jwt` in your `.env` to enforce JWT authentication. Both modes work simultaneously — JWT takes priority when a Bearer token is provided.
 
-Installation
-bash
-pnpm install
-Running the Development Environment
-bash
-pnpm dev
-Testing
-Backend tests with pytest
+### Register & Login (JWT mode)
 
-Frontend tests with Jest and React Testing Library
+```bash
+# Register
+curl -X POST "http://localhost:8000/auth/register?email=admin@example.com&password=admin123&full_name=Admin&role=admin"
+
+# Login
+curl -X POST http://localhost:8000/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{"email": "admin@example.com", "password": "admin123"}'
+```
+
+## Running Tests
+
+```bash
+# From project root
+pytest apps/backend/tests/ -v
+
+# Individual test suites
+pytest apps/backend/tests/test_integration.py -v      # All API endpoints
+pytest apps/backend/tests/test_anomaly_detector.py -v  # ML model
+pytest apps/backend/tests/test_metrics_service.py -v   # Redis metrics
+pytest apps/backend/tests/test_compliance_monitor.py -v # Compliance
+```
 
 Contributing
 Please see CONTRIBUTING.md for guidelines.
-
-License
-MIT
 
 ## Recent Integration & Development Updates (2024-06)
 
@@ -159,7 +172,7 @@ MIT
 - **Frontend-Backend Integration:** Updated all frontend hooks and types to match backend API shapes. Improved error handling and type safety with Zod and TypeScript.
 - **Proxy/Rewrite Setup:** Next.js frontend now proxies `/api/*` requests to the backend using a rewrite rule in `next.config.js` for seamless local development.
 - **Test Data:** Backend endpoints return mock/test data if the database is empty, improving frontend development experience.
-- **Authentication Relaxed for Testing:** Key endpoints (incidents, agentic actions) have relaxed authentication for local testing. Re-enable RBAC for production.
+- **Authentication:** Supports both JWT (`POST /auth/login`) and header-based auth. Set `AUTH_MODE=jwt` for production. Header-based auth is the default for local development.
 - **OpenTelemetry Tracing:** Backend is instrumented for OpenTelemetry. To enable local tracing, run:
 
   ```sh
@@ -188,7 +201,7 @@ The platform includes an AI-powered Financial Compliance Agent that monitors tra
 ### Features
 
 - **FINRA 4511 & SEC 17a-4 Compliance** - Automated regulatory rule checking
-- **Anomaly Detection** - Heuristic-based scoring for suspicious transactions
+- **Anomaly Detection** - ML-powered Isolation Forest scoring for suspicious transactions
 - **Decision Transparency** - Full reasoning and alternative actions provided
 - **Audit Trails** - Complete traceability for compliance reporting
 
@@ -225,3 +238,98 @@ curl -X POST http://localhost:8000/agent/compliance/monitor \
 ### Frontend
 
 Access the Compliance Monitor UI via the **Compliance Monitor** tab in the dashboard at `http://localhost:3000/incidents`.
+
+### New API Endpoints
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agent/compliance/monitor` | POST | Submit a transaction for ML-powered compliance analysis |
+| `/agent/compliance/status` | GET | Check agent health, model version, and capabilities |
+| `/agent/compliance/metrics` | GET | Real-time performance metrics (Redis-backed) |
+| `/agent/compliance/test-batch` | POST | Run 100 synthetic transactions for validation |
+| `/agent/compliance/metrics/reset` | POST | Admin-only: Reset metrics counters |
+
+## 📊 ML Model & Performance Validation
+
+### Anomaly Detection Model
+
+- **Algorithm:** Isolation Forest (scikit-learn)
+- **Training Data:** 2,000 synthetic normal transactions
+- **Features (6):** amount, hour, day_of_week, is_weekend, is_off_hours, txn_type_encoded
+- **Contamination:** 10% (expected outlier rate)
+- **Model Version:** 2.0.0
+- **Persistence:** Pickle (auto-trains on first run, loads from disk on restart)
+
+### Test Results (100 synthetic transactions)
+
+| Metric | Value |
+|--------|-------|
+| **Approval Rate** | ~72% |
+| **Manual Review Rate** | ~23% |
+| **Block Rate** | ~5% |
+| **Avg Confidence** | ~85% |
+
+Run your own validation:
+
+```bash
+curl -X POST http://localhost:8000/agent/compliance/test-batch?count=100
+```
+
+### Metrics Persistence
+
+Metrics are stored in Redis for persistence across restarts. Falls back to in-memory storage if Redis is unavailable.
+
+**Required environment variables for production:**
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `REDIS_URL` | Redis connection URL | `redis://localhost:6379` |
+| `DATABASE_URL` | PostgreSQL connection URL | SQLite (local) |
+| `CORS_ORIGINS` | Comma-separated allowed origins | `http://localhost:3000` |
+
+## 🚢 Deployment (Railway)
+
+### Prerequisites
+
+- [Railway CLI](https://docs.railway.app/develop/cli) installed
+- Railway account
+
+### Deploy Backend
+
+```bash
+# Install Railway CLI
+npm install -g @railway/cli
+
+# Login
+railway login
+
+# Initialize project
+cd fin-observability
+railway init
+
+# Add Redis addon
+railway add --plugin redis
+
+# Deploy
+railway up
+
+# Get public URL
+railway domain
+```
+
+### Environment Variables (Railway Dashboard)
+
+Set these in your Railway project settings:
+
+```
+REDIS_URL=<auto-populated by Railway Redis addon>
+DATABASE_URL=<auto-populated by Railway Postgres addon>
+CORS_ORIGINS=https://your-frontend.up.railway.app
+```
+
+### Docker (Alternative)
+
+```bash
+docker build -t fin-obs-backend .
+docker run -p 8000:8000 -e REDIS_URL=redis://host:6379 fin-obs-backend
+```

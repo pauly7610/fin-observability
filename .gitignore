@@ -42,7 +42,8 @@ eggs/
 openapi.json
 openapi.yaml
 export_openapi_yaml.py
-lib/
+# Python build artifacts (not src/lib)
+/lib/
 lib64/
 parts/
 sdist/
@@ -103,4 +104,8 @@ yarn-debug.log*
 yarn-error.log*
 
 # Turbo
-.turbo 
+.turbo
+
+# ML model artifacts
+models/
+*.pkl

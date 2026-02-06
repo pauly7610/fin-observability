@@ -35,7 +35,7 @@ class BaselComplianceService:
             # treat negative transaction amounts as outflows
             if tx.amount < 0:
                 outflows += abs(tx.amount)
-        lcr = hqla / outflows if outflows > 0 else float("inf")
+        lcr = hqla / outflows if outflows > 0 else 999.99
         compliant = lcr >= self.lcr_threshold
         return {
             "lcr": lcr,

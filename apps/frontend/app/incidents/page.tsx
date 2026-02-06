@@ -1,3 +1,4 @@
+'use client'
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
 import { MetricsOverview } from "@/components/MetricsOverview"
 import { AIAgentActivity } from "@/components/AIAgentActivity"
