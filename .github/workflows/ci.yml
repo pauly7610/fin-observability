@@ -24,13 +24,11 @@ jobs:
       - name: Install Python dependencies
         run: |
           pip install --upgrade pip
-          pip install "setuptools>=69.0.0"
           pip install -r apps/backend/requirements.txt
           pip install -r apps/backend/requirements-dev.txt
-          pip install "setuptools>=69.0.0"
 
-      - name: Verify pkg_resources available
-        run: python -c "import pkg_resources; print('pkg_resources OK:', pkg_resources.__version__ if hasattr(pkg_resources, '__version__') else 'available')"
+      - name: Ensure setuptools (pkg_resources) for Python 3.12
+        run: pip install --force-reinstall setuptools
 
       - name: Run backend tests
         run: python -m pytest apps/backend/tests/ -v --tb=short
