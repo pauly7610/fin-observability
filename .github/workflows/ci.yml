@@ -27,9 +27,6 @@ jobs:
           pip install -r apps/backend/requirements.txt
           pip install -r apps/backend/requirements-dev.txt
 
-      - name: Ensure setuptools (pkg_resources) for Python 3.12
-        run: pip install --force-reinstall setuptools
-
       - name: Run backend tests
         run: python -m pytest apps/backend/tests/ -v --tb=short
 
