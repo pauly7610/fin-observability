@@ -1,5 +1,4 @@
-import { trace, context, SpanStatusCode } from '@opentelemetry/api';
-import { Span } from '@opentelemetry/api';
+import { trace, context, SpanStatusCode, Attributes, Span } from '@opentelemetry/api';
 
 export interface TelemetryContext {
     span: Span;
@@ -52,7 +51,7 @@ export function withSpan<T>(
 export function addEvent(
     span: Span,
     name: string,
-    attributes: Record<string, string> = {}
+    attributes: Attributes = {}
 ): void {
     span.addEvent(name, attributes);
 }
@@ -67,11 +66,12 @@ export function setAttributes(
 export function recordException(
     span: Span,
     error: Error,
-    attributes: Record<string, string> = {}
+    attributes: Attributes = {}
 ): void {
-    span.recordException(error, attributes);
+    span.recordException(error);
+    span.setAttributes(attributes);
     span.setStatus({
         code: SpanStatusCode.ERROR,
         message: error.message,
     });
-} 
+}

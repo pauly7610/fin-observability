@@ -6,7 +6,7 @@
   "module": "./dist/index.mjs",
   "types": "./dist/index.d.ts",
   "scripts": {
-    "build": "tsup",
+    "build": "echo 'Python-only package, no TS build needed'",
     "dev": "tsup --watch",
     "lint": "eslint src/",
     "test": "jest"

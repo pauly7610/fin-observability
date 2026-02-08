@@ -1,0 +1,9 @@
+# Dev dependencies — extends runtime requirements
+-r requirements.txt
+
+# Testing
+pytest==8.0.2
+faker>=18.0.0
+
+# ONNX model export (runtime uses onnxruntime for inference only)
+onnx>=1.15.0

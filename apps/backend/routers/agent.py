@@ -6,6 +6,7 @@ from ..services.agent_service import AgenticTriageService
 from ..services.incident_remediation_service import IncidentRemediationService
 from ..services.compliance_automation_service import ComplianceAutomationService
 from ..services.audit_summary_service import AuditSummaryService
+from ..services.llm_utils import get_llm_config, set_llm_config
 from ..services.agentic_workflow_service import AgenticWorkflowService
 from ..services.basel_compliance_service import BaselComplianceService
 from ..services.metrics_service import get_metrics_service
@@ -1163,3 +1164,29 @@ def _check_compliance_rules(txn: ComplianceMonitorTransaction) -> dict | None:
         }
     
     return None
+
+
+# --- LLM Configuration Endpoints ---
+
+@router.get("/config")
+async def get_agent_config():
+    """
+    Get current LLM configuration including provider, model, and available options.
+    """
+    return get_llm_config()
+
+
+@router.post("/config/model")
+async def update_agent_model(
+    provider: str = None,
+    model: str = None,
+    user=Depends(require_role(["admin"])),
+):
+    """
+    Admin-only: Update the LLM provider and/or model at runtime.
+    Changes take effect immediately for all subsequent agent calls.
+    """
+    try:
+        return set_llm_config(provider=provider, model=model)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))

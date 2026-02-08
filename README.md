@@ -8,22 +8,25 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 
 ## Features
 
-- Real-time anomaly detection using Isolation Forest and KNN models
+- Real-time anomaly detection using Isolation Forest and PCA-Autoencoder ensemble
 - Compliance monitoring with SEC 17a-4 and FINRA 4511 audit trails
-- **Financial Compliance Agent** - AI-powered transaction monitoring with governance/audit trails
-- Agentic AI capabilities for incident triage, remediation, compliance automation, and audit summarization (works without OpenAI key via heuristic fallback)
-- OpenTelemetry instrumentation compatible with ITRS Geneos platform
-- Kafka streaming stubs for event ingestion
-- Next.js frontend with real-time dashboard and compliance badges
+- **Financial Compliance Agent** — AI-powered transaction monitoring with governance/audit trails
+- **Multi-provider LLM integration** — OpenAI, Anthropic, and Google Gemini via LangChain with structured output and automatic heuristic fallback
+- Agentic AI for incident triage, remediation, compliance automation, and audit summarization
+- Runtime model switching via `/agent/config` endpoints (admin-only)
+- SHAP explainability dashboard with waterfall charts
+- A/B testing framework with chi-squared significance testing
+- OpenTelemetry instrumentation with OTel Collector forwarding
+- Next.js frontend with real-time dashboard, model management, and compliance badges
 
 ## 🚀 Quick Start
 
 ### Prerequisites
 
-- Node.js 20+ and npm 9+
-- Python 3.9+
-- PostgreSQL 13+
-- Redis (for caching)
+- Node.js 20+ and pnpm 9+
+- Python 3.10+
+- PostgreSQL 13+ (or SQLite for local dev)
+- Redis (optional — falls back to in-memory)
 
 ### Backend Setup
 
@@ -57,13 +60,13 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 1. **Install Node.js dependencies** (from project root):
 
    ```bash
-   npm install
+   pnpm install
    ```
 
 2. **Start the development server**:
 
    ```bash
-   npm run dev --workspace=apps/frontend
+   pnpm run dev
    ```
 
 3. **Open your browser** to: http://localhost:3000
@@ -73,13 +76,22 @@ This monorepo contains the full-stack implementation of a Financial AI Observabi
 ```
 fin-ai-observability/
 ├── apps/
-│   ├── frontend/      # Next.js 16.1.6 (App Router, Turbopack)
-│   └── backend/       # FastAPI 0.111.0
+│   ├── frontend/          # Next.js 16.1.6 (App Router, Turbopack)
+│   └── backend/           # FastAPI 0.111.0
+│       ├── services/      # LLM-powered agent services with fallback
+│       │   ├── llm_utils.py               # Multi-provider LLM (OpenAI/Anthropic/Google)
+│       │   ├── agent_service.py           # Incident triage (LLM + heuristic)
+│       │   ├── incident_remediation_service.py
+│       │   ├── compliance_automation_service.py
+│       │   └── audit_summary_service.py
+│       ├── routers/       # FastAPI routers incl. /agent/config
+│       └── tests/         # 60 tests (integration, unit, LLM fallback)
 ├── packages/
-│   ├── agentic-core/  # LangChain 0.3.x, OpenAI
-│   ├── shared-types/  # TypeScript 5.5.x
-│   └── telemetry/    # OpenTelemetry Python/JS
-└── docs/              # Project documentation
+│   ├── agentic-core/      # LangChain agents (Python)
+│   ├── shared-types/      # TypeScript shared types
+│   └── telemetry/         # OpenTelemetry JS SDK
+├── .github/workflows/     # CI: backend tests + frontend build
+└── docs/                  # PRD, Architecture
 ```
 
 ## Approval Workflow & Compliance
@@ -98,15 +110,16 @@ Sensitive actions and exports are protected by a robust approval workflow. All m
 
 - **Environment Variables**: Copy `apps/backend/env.example` to `apps/backend/.env` and update values
 - **Migrations**: `alembic upgrade head`
-- **Testing**: `pytest apps/backend/tests/ -v`
-- **Note**: LLM services (triage, remediation, compliance, audit) work without an `OPENAI_API_KEY` using keyword-matching heuristics
+- **Testing**: `DATABASE_URL=sqlite:///./test.db pytest apps/backend/tests/ -v`
+- **LLM providers**: Set `OPENAI_API_KEY`, `ANTHROPIC_API_KEY`, or `GOOGLE_API_KEY` — services auto-detect the provider. Without any key, all services fall back to keyword heuristics.
+- **Runtime model switching**: `GET /agent/config` shows current LLM config; `POST /agent/config/model?provider=openai&model=gpt-4o` switches at runtime (admin-only)
 
 ### Frontend Development
 
 - **Environment Variables**: Copy `apps/frontend/env.example` to `apps/frontend/.env.local` and update values
-- **Linting**: `npm run lint`
-- **Testing**: `npm test`
-- **Install types**: `@types/node`, `@types/react`, `@types/react-dom` are in devDependencies — run `npm install` to resolve TS errors
+- **Linting**: `pnpm run lint`
+- **Testing**: `pnpm test`
+- **Build all packages**: `pnpm run build`
 
 ## Troubleshooting
 
@@ -363,7 +376,7 @@ docker run -p 8000:8000 -e REDIS_URL=redis://host:6379 fin-obs-backend
 - Compliance rule engine (FINRA 4511, SEC 17a-4)
 - Real-time metrics (Redis-backed with in-memory fallback)
 - JWT + header-based authentication
-- 43 passing tests (integration, unit, ML model)
+- 60 passing tests (integration, unit, ML model, LLM fallback)
 - Railway deployment config
 
 ### Phase 2: ✅ Complete
@@ -419,7 +432,27 @@ docker run -p 8000:8000 -e REDIS_URL=redis://host:6379 fin-obs-backend
 | `/agent/compliance/retrain/scheduled` | POST | Manually trigger the automated retraining pipeline |
 | `/agent/compliance/retrain/status` | GET | Get retraining pipeline status and schedule |
 
-### Phase 6: Future
+### Phase 6: ✅ Complete
+- [x] Multi-provider LLM integration (OpenAI, Anthropic, Google Gemini) via LangChain
+- [x] Structured LLM output with Pydantic schemas for all agent services
+- [x] Graceful heuristic fallback when no API key is configured
+- [x] Runtime model switching via `GET/POST /agent/config` endpoints
+- [x] Frontend Model Management UI (compliance page → Model Management tab)
+- [x] Source badges (LLM/Heuristic) on agent actions in frontend
+- [x] GitHub Actions CI workflow (backend tests + frontend build)
+- [x] pnpm monorepo migration with Turborepo
+- [x] Dockerfile optimization (dropped gcc/libpq-dev, Python healthcheck)
+- [x] OpenTelemetry telemetry package updated to OTel v2 API
+- [x] 60 passing tests
+
+### New API Endpoints (Phase 6)
+
+| Endpoint | Method | Description |
+|----------|--------|-------------|
+| `/agent/config` | GET | Current LLM provider, model, and available options |
+| `/agent/config/model` | POST | Switch LLM provider/model at runtime (admin) |
+
+### Phase 7: Future
 - [ ] Real production dataset integration (live data feeds)
 - [ ] Deep learning LSTM autoencoder (PyTorch + ONNX export)
 - [ ] Grafana Cloud dashboard integration

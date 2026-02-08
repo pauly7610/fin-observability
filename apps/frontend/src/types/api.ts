@@ -70,10 +70,62 @@ export const AgentActionSchema = z.object({
   submitted_by: z.string().nullable(),
   created_at: z.string(),
   ai_explanation: z.string().nullable(),
-  result: z.any().optional()
+  result: z.any().optional(),
+  source: z.string().optional(),
+  model: z.string().nullable().optional()
 })
 
 export type AgentAction = z.infer<typeof AgentActionSchema>
+
+// LLM Model Configuration
+export const ModelOptionSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  tier: z.string().optional(),
+  finance_accuracy: z.string().optional()
+})
+
+export const LLMConfigSchema = z.object({
+  provider: z.string().nullable(),
+  model: z.string().nullable(),
+  source: z.string(),
+  fallback_active: z.boolean(),
+  available_providers: z.array(z.string()),
+  available_models: z.record(z.string(), z.array(ModelOptionSchema))
+})
+
+export type LLMConfig = z.infer<typeof LLMConfigSchema>
+
+export const RetrainStatusSchema = z.object({
+  last_retrain: z.string().nullable(),
+  retrain_count: z.number(),
+  schedule_hours: z.number()
+})
+
+export type RetrainStatus = z.infer<typeof RetrainStatusSchema>
+
+export const LeaderboardEntrySchema = z.object({
+  model_version: z.string(),
+  f1_score: z.number(),
+  precision: z.number(),
+  recall: z.number(),
+  total_predictions: z.number(),
+  timestamp: z.string()
+})
+
+export type LeaderboardEntry = z.infer<typeof LeaderboardEntrySchema>
+
+export const ExperimentResultSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+  model_a: z.string(),
+  model_b: z.string(),
+  traffic_split: z.number(),
+  active: z.boolean(),
+  results: z.any().optional()
+})
+
+export type ExperimentResult = z.infer<typeof ExperimentResultSchema>
 
 // Error Types
 export class APIError extends Error {
