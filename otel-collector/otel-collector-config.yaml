@@ -1,3 +1,9 @@
+extensions:
+  basicauth/grafana_cloud:
+    client_auth:
+      username: "${GRAFANA_CLOUD_INSTANCE_ID}"
+      password: "${GRAFANA_CLOUD_API_TOKEN}"
+
 receivers:
   otlp:
     protocols:
@@ -10,6 +16,9 @@ processors:
   batch:
     timeout: 5s
     send_batch_size: 1024
+  resourcedetection:
+    detectors: ["env", "system"]
+    override: false
 
 exporters:
   # Logs telemetry to stdout — useful for Railway log viewer
@@ -19,11 +28,10 @@ exporters:
     sampling_thereafter: 200
 
   # ── Grafana Cloud ──
-  # Set GRAFANA_CLOUD_API_KEY as env var in Railway (Base64-encoded instance_id:api_key)
-  otlphttp/grafana:
+  otlphttp/grafana_cloud:
     endpoint: "https://otlp-gateway-prod-us-east-3.grafana.net/otlp"
-    headers:
-      Authorization: "Basic ${GRAFANA_CLOUD_API_KEY}"
+    auth:
+      authenticator: basicauth/grafana_cloud
 
   # ── Honeycomb ──
   # Uncomment to forward to Honeycomb.
@@ -43,16 +51,17 @@ exporters:
   #     X-Axiom-Dataset: "${AXIOM_DATASET}"
 
 service:
+  extensions: [basicauth/grafana_cloud]
   pipelines:
     traces:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [logging, otlphttp/grafana]
+      processors: [resourcedetection, batch]
+      exporters: [logging, otlphttp/grafana_cloud]
     metrics:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [logging, otlphttp/grafana]
+      processors: [resourcedetection, batch]
+      exporters: [logging, otlphttp/grafana_cloud]
     logs:
       receivers: [otlp]
-      processors: [batch]
-      exporters: [logging, otlphttp/grafana]
+      processors: [resourcedetection, batch]
+      exporters: [logging, otlphttp/grafana_cloud]
