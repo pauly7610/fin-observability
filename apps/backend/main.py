@@ -7,6 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
+from opentelemetry.sdk.resources import Resource
 from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 from apps.backend.broadcast import incident_broadcaster
@@ -88,7 +89,9 @@ from apps.backend.database import SessionLocal
 Base.metadata.create_all(bind=engine)
 
 # Initialize OpenTelemetry (tracing)
-trace.set_tracer_provider(TracerProvider())
+service_name = os.environ.get("OTEL_SERVICE_NAME", "fin-observability")
+resource = Resource.create({"service.name": service_name})
+trace.set_tracer_provider(TracerProvider(resource=resource))
 tracer = trace.get_tracer(__name__)
 
 # Build OTLP exporter config — supports both direct-to-Grafana and collector modes
@@ -123,11 +126,11 @@ from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExp
 if otel_endpoint:
     metric_exporter = OTLPMetricExporter(endpoint=f"{otel_endpoint}/v1/metrics", headers=otel_headers)
     metric_reader = PeriodicExportingMetricReader(metric_exporter)
-    meter_provider = MeterProvider(metric_readers=[metric_reader])
+    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
     logging.info(f"OTLP metric exporter enabled -> {otel_endpoint}")
 else:
     logging.info("OTEL_EXPORTER_OTLP_ENDPOINT not set — OTLP metric exporter disabled")
-    meter_provider = MeterProvider()
+    meter_provider = MeterProvider(resource=resource)
 set_meter_provider(meter_provider)
 
 # Define meters for key business/compliance events
