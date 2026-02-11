@@ -7,7 +7,7 @@ from slowapi.errors import RateLimitExceeded
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
 from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.exporter.otlp.proto.grpc.trace_exporter import OTLPSpanExporter
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 from apps.backend.broadcast import incident_broadcaster
 from apps.backend.database import engine
@@ -91,9 +91,22 @@ Base.metadata.create_all(bind=engine)
 trace.set_tracer_provider(TracerProvider())
 tracer = trace.get_tracer(__name__)
 
+# Build OTLP exporter config — supports both direct-to-Grafana and collector modes
 otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
+grafana_instance_id = os.environ.get("GRAFANA_CLOUD_INSTANCE_ID")
+grafana_api_token = os.environ.get("GRAFANA_CLOUD_API_TOKEN")
+
+otel_headers = {}
+if grafana_instance_id and grafana_api_token:
+    import base64
+    credentials = base64.b64encode(f"{grafana_instance_id}:{grafana_api_token}".encode()).decode()
+    otel_headers["Authorization"] = f"Basic {credentials}"
+    if not otel_endpoint:
+        otel_endpoint = "https://otlp-gateway-prod-us-east-3.grafana.net/otlp"
+    logging.info(f"Grafana Cloud OTLP auth configured for instance {grafana_instance_id}")
+
 if otel_endpoint:
-    otlp_exporter = OTLPSpanExporter(endpoint=otel_endpoint, insecure=True)
+    otlp_exporter = OTLPSpanExporter(endpoint=f"{otel_endpoint}/v1/traces", headers=otel_headers)
     span_processor = BatchSpanProcessor(otlp_exporter)
     trace.get_tracer_provider().add_span_processor(span_processor)
     logging.info(f"OTLP trace exporter enabled -> {otel_endpoint}")
@@ -104,10 +117,10 @@ else:
 from opentelemetry.sdk.metrics import MeterProvider
 from opentelemetry.metrics import set_meter_provider, get_meter
 from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.exporter.otlp.proto.grpc.metric_exporter import OTLPMetricExporter
+from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
 
 if otel_endpoint:
-    metric_exporter = OTLPMetricExporter(endpoint=otel_endpoint, insecure=True)
+    metric_exporter = OTLPMetricExporter(endpoint=f"{otel_endpoint}/v1/metrics", headers=otel_headers)
     metric_reader = PeriodicExportingMetricReader(metric_exporter)
     meter_provider = MeterProvider(metric_readers=[metric_reader])
     logging.info(f"OTLP metric exporter enabled -> {otel_endpoint}")
