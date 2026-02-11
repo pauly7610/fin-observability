@@ -30,10 +30,10 @@ from apps.backend.models import (
 Base.metadata.create_all(bind=engine)
 
 # --- Config ---
-NUM_TRANSACTIONS = 500
-NUM_COMPLIANCE_LOGS = 100
-NUM_SYSTEM_METRICS = 200
-NUM_INCIDENTS = 20
+NUM_TRANSACTIONS = int(os.environ.get("SEED_TRANSACTIONS", 10000))
+NUM_COMPLIANCE_LOGS = int(os.environ.get("SEED_COMPLIANCE_LOGS", 500))
+NUM_SYSTEM_METRICS = int(os.environ.get("SEED_SYSTEM_METRICS", 1000))
+NUM_INCIDENTS = int(os.environ.get("SEED_INCIDENTS", 50))
 
 CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF", "CAD", "AUD"]
 STATUSES = ["completed", "completed", "completed", "pending", "failed"]
