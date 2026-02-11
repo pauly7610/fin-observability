@@ -6,6 +6,7 @@ from passlib.context import CryptContext
 from pydantic import BaseModel
 from ..database import get_db
 from ..models import User
+from ..security import get_current_user, require_permission
 import os
 
 router = APIRouter(prefix="/auth", tags=["auth"])
@@ -87,8 +88,15 @@ async def register(
     db: Session = Depends(get_db),
 ):
     """
-    Register a new user (for development/demo purposes).
+    Register a new user. Role must be a valid RBAC role.
     """
+    from ..rbac import VALID_ROLES
+
+    if role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid role '{role}'. Must be one of: {sorted(VALID_ROLES)}",
+        )
     existing = db.query(User).filter(User.email == email).first()
     if existing:
         raise HTTPException(status_code=400, detail="Email already registered")
@@ -105,3 +113,73 @@ async def register(
     db.commit()
     db.refresh(user)
     return {"id": user.id, "email": user.email, "role": user.role}
+
+
+@router.get("/roles")
+async def list_roles():
+    """List all roles and their permissions."""
+    from ..rbac import get_role_hierarchy
+
+    return get_role_hierarchy()
+
+
+@router.put("/users/{user_id}/role")
+async def assign_role(
+    user_id: int,
+    role: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("user:role_assign")),
+):
+    """Admin-only: Assign a role to a user."""
+    from ..rbac import VALID_ROLES
+
+    if role not in VALID_ROLES:
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid role '{role}'. Must be one of: {sorted(VALID_ROLES)}",
+        )
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    old_role = user.role
+    user.role = role
+    db.commit()
+    return {
+        "id": user.id,
+        "email": user.email,
+        "old_role": old_role,
+        "new_role": role,
+    }
+
+
+@router.put("/users/{user_id}/deactivate")
+async def deactivate_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_permission("user:delete")),
+):
+    """Admin-only: Deactivate a user account."""
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot deactivate yourself")
+    user.is_active = False
+    db.commit()
+    return {"id": user.id, "email": user.email, "is_active": False}
+
+
+@router.get("/me/permissions")
+async def my_permissions(
+    current_user: User = Depends(get_current_user),
+):
+    """Get the current user's role and permissions."""
+    from ..rbac import get_permissions_for_role
+
+    perms = get_permissions_for_role(current_user.role)
+    return {
+        "user_id": current_user.id,
+        "email": current_user.email,
+        "role": current_user.role,
+        "permissions": sorted([p.value for p in perms]),
+    }

@@ -19,12 +19,11 @@ exporters:
     sampling_thereafter: 200
 
   # ── Grafana Cloud ──
-  # Uncomment to forward to Grafana Cloud OTLP endpoint.
-  # Set GRAFANA_CLOUD_INSTANCE_ID and GRAFANA_CLOUD_API_KEY as env vars in Railway.
-  # otlphttp/grafana:
-  #   endpoint: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp"
-  #   headers:
-  #     Authorization: "Basic ${GRAFANA_CLOUD_API_KEY}"
+  # Set GRAFANA_CLOUD_API_KEY as env var in Railway (Base64-encoded instance_id:api_key)
+  otlphttp/grafana:
+    endpoint: "https://otlp-gateway-prod-us-central-0.grafana.net/otlp"
+    headers:
+      Authorization: "Basic ${GRAFANA_CLOUD_API_KEY}"
 
   # ── Honeycomb ──
   # Uncomment to forward to Honeycomb.
@@ -48,12 +47,12 @@ service:
     traces:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging]
+      exporters: [logging, otlphttp/grafana]
     metrics:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging]
+      exporters: [logging, otlphttp/grafana]
     logs:
       receivers: [otlp]
       processors: [batch]
-      exporters: [logging]
+      exporters: [logging, otlphttp/grafana]

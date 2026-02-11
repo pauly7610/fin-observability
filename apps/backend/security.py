@@ -95,3 +95,33 @@ def require_role(roles: List[str], scopes: Optional[List[str]] = None):
         return user
 
     return dependency
+
+
+def require_permission(permission: str):
+    """
+    Permission-based access control using the RBAC module.
+    Checks if the user's role grants the required permission.
+
+    Usage:
+        @router.get("/endpoint")
+        async def handler(user=Depends(require_permission("model:retrain"))):
+            ...
+    """
+    from .rbac import has_permission, Permission
+
+    def dependency(user: User = Depends(get_current_user)):
+        try:
+            perm = Permission(permission)
+        except ValueError:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Unknown permission: {permission}",
+            )
+        if not has_permission(user.role, perm):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail=f"Permission denied: {permission} not granted to role '{user.role}'",
+            )
+        return user
+
+    return dependency
