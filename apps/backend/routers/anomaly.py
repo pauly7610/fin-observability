@@ -40,7 +40,7 @@ async def detect_anomalies(
             )
             span.set_attribute("anomaly_count", sum(anomaly_flags))
             # Increment anomaly detected metric
-            from apps.backend.main import anomaly_detected_counter
+            from apps.backend.telemetry import anomaly_detected_counter
 
             anomaly_detected_counter.add(
                 sum(anomaly_flags),
@@ -87,7 +87,7 @@ async def get_recent_anomalies(limit: int = 100, db: Session = Depends(get_db)):
                 .all()
             )
             # Increment anomaly detected metric
-            from apps.backend.main import anomaly_detected_counter
+            from apps.backend.telemetry import anomaly_detected_counter
 
             anomaly_detected_counter.add(
                 len(recent_anomalies),
@@ -129,7 +129,7 @@ async def get_recent_metric_anomalies(limit: int = 100, db: Session = Depends(ge
                 .all()
             )
             # Increment anomaly detected metric
-            from apps.backend.main import anomaly_detected_counter
+            from apps.backend.telemetry import anomaly_detected_counter
 
             anomaly_detected_counter.add(
                 len(recent_metric_anomalies),
@@ -195,7 +195,7 @@ async def train_anomaly_model(
                 port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
                 extra={"source": source},
             )
-            from apps.backend.main import anomaly_detected_counter
+            from apps.backend.telemetry import anomaly_detected_counter
 
             anomaly_detected_counter.add(
                 1, {"type": "retrain", "status": "success", "user": "unknown"}

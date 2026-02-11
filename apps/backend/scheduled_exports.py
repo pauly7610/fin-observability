@@ -179,7 +179,7 @@ def export_compliance_logs():
             session.commit()
 
             # Increment export job metric
-            from apps.backend.main import export_job_counter
+            from apps.backend.telemetry import export_job_counter
 
             status = (
                 "delivered"
@@ -255,7 +255,7 @@ def export_agent_actions():
             session.commit()
 
             # Increment export job metric
-            from apps.backend.main import export_job_counter
+            from apps.backend.telemetry import export_job_counter
 
             status = (
                 "delivered"

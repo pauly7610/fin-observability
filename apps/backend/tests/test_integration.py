@@ -250,8 +250,7 @@ def test_anomaly_detect():
         },
         headers=ADMIN_HEADERS,
     )
-    # May return 200 or 500 depending on numpy serialization
-    assert resp.status_code in (200, 500)
+    assert resp.status_code == 200, f"Anomaly detect failed: {resp.text}"
 
 
 # --- LCR ---

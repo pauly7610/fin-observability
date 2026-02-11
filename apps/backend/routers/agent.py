@@ -168,7 +168,7 @@ async def approve_agent_action(
         db.commit()
         db.refresh(action)
         # Increment compliance action metric
-        from apps.backend.main import compliance_action_counter
+        from apps.backend.telemetry import compliance_action_counter
 
         compliance_action_counter.add(
             1,
@@ -217,7 +217,7 @@ async def reject_agent_action(
         db.commit()
         db.refresh(action)
         # Increment compliance action metric
-        from apps.backend.main import compliance_action_counter
+        from apps.backend.telemetry import compliance_action_counter
 
         compliance_action_counter.add(
             1,
@@ -294,7 +294,7 @@ async def remediate_incident(
             if "recommendation" in result:
                 response["recommendation"] = result["recommendation"]
         # Increment compliance action metric
-        from apps.backend.main import compliance_action_counter
+        from apps.backend.telemetry import compliance_action_counter
 
         compliance_action_counter.add(
             1,
@@ -372,7 +372,7 @@ async def automate_compliance(
             if "recommendation" in result:
                 response["recommendation"] = result["recommendation"]
         # Increment compliance action metric
-        from apps.backend.main import compliance_action_counter
+        from apps.backend.telemetry import compliance_action_counter
 
         compliance_action_counter.add(
             1,
@@ -451,7 +451,7 @@ async def summarize_audit(
             if "recommendation" in result:
                 response["recommendation"] = result["recommendation"]
         # Increment compliance action metric
-        from apps.backend.main import compliance_action_counter
+        from apps.backend.telemetry import compliance_action_counter
 
         compliance_action_counter.add(
             1,
@@ -592,7 +592,7 @@ async def monitor_transaction_compliance(
             metrics_service.increment_transaction(decision.action, decision.confidence)
             
             # Increment OpenTelemetry compliance action metric
-            from apps.backend.main import compliance_action_counter
+            from apps.backend.telemetry import compliance_action_counter
             compliance_action_counter.add(
                 1,
                 {"type": "compliance_monitor", "action": decision.action},

@@ -1,18 +1,23 @@
 from fastapi import FastAPI, Request, WebSocket, WebSocketDisconnect
-from apps.backend.routers import approval
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
-from apps.backend.rate_limit import limiter
 from slowapi.errors import RateLimitExceeded
 from opentelemetry import trace
-from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor
-from opentelemetry.sdk.resources import Resource
-from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 
 from apps.backend.broadcast import incident_broadcaster
-from apps.backend.database import engine
+from apps.backend.database import engine, SessionLocal
 from apps.backend.models import Base
+from apps.backend.rate_limit import limiter
+from apps.backend.routers import approval
+from apps.backend.telemetry import (
+    init_telemetry,
+    metrics_middleware,
+    export_job_counter,
+    compliance_action_counter,
+    anomaly_detected_counter,
+    http_request_counter,
+    http_request_duration,
+)
 import logging
 import os
 import structlog
@@ -44,21 +49,18 @@ structlog.configure(
 )
 logging.basicConfig(level=logging.INFO, format="%(message)s")
 
-# Instrument database for tracing
+# Instrument database and HTTP clients for tracing
 from opentelemetry.instrumentation.sqlalchemy import SQLAlchemyInstrumentor
-
-SQLAlchemyInstrumentor().instrument(engine=engine)
-
-# Instrument HTTP clients for tracing
 from opentelemetry.instrumentation.requests import RequestsInstrumentor
 
+SQLAlchemyInstrumentor().instrument(engine=engine)
 RequestsInstrumentor().instrument()
 try:
     from opentelemetry.instrumentation.boto3s3 import Boto3S3Instrumentor
-
     Boto3S3Instrumentor().instrument()
 except ImportError:
-    pass  # boto3 S3 instrumentation is optional and only if boto3 is present
+    pass
+
 from apps.backend.routers import (
     agent,
     auth,
@@ -76,86 +78,16 @@ from apps.backend.routers import (
     export_metadata,
     ops_metrics,
 )
-
-
-
-
 from apps.backend.scheduled_exports import schedule_exports
-from apscheduler.schedulers.background import BackgroundScheduler
 from apps.backend.agentic_escalation import escalate_overdue_agent_actions
-from apps.backend.database import SessionLocal
+from apscheduler.schedulers.background import BackgroundScheduler
 
 # Create database tables
 Base.metadata.create_all(bind=engine)
 
-# Initialize OpenTelemetry (tracing)
-service_name = os.environ.get("OTEL_SERVICE_NAME", "fin-observability")
-resource = Resource.create({"service.name": service_name})
-trace.set_tracer_provider(TracerProvider(resource=resource))
+# Initialize OpenTelemetry (tracing + metrics)
+init_telemetry()
 tracer = trace.get_tracer(__name__)
-
-# Build OTLP exporter config — supports both direct-to-Grafana and collector modes
-otel_endpoint = os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT")
-grafana_instance_id = os.environ.get("GRAFANA_CLOUD_INSTANCE_ID")
-grafana_api_token = os.environ.get("GRAFANA_CLOUD_API_TOKEN")
-
-otel_headers = {}
-if grafana_instance_id and grafana_api_token:
-    import base64
-    credentials = base64.b64encode(f"{grafana_instance_id}:{grafana_api_token}".encode()).decode()
-    otel_headers["Authorization"] = f"Basic {credentials}"
-    otel_endpoint = "https://otlp-gateway-prod-us-east-3.grafana.net/otlp"
-    logging.info(f"Grafana Cloud OTLP auth configured for instance {grafana_instance_id}")
-elif otel_endpoint and not otel_endpoint.startswith("http"):
-    otel_endpoint = f"http://{otel_endpoint}"
-
-if otel_endpoint:
-    otlp_exporter = OTLPSpanExporter(endpoint=f"{otel_endpoint}/v1/traces", headers=otel_headers)
-    span_processor = BatchSpanProcessor(otlp_exporter)
-    trace.get_tracer_provider().add_span_processor(span_processor)
-    logging.info(f"OTLP trace exporter enabled -> {otel_endpoint}")
-else:
-    logging.info("OTEL_EXPORTER_OTLP_ENDPOINT not set — OTLP trace exporter disabled")
-
-# Initialize OpenTelemetry Metrics
-from opentelemetry.sdk.metrics import MeterProvider
-from opentelemetry.metrics import set_meter_provider, get_meter
-from opentelemetry.sdk.metrics.export import PeriodicExportingMetricReader
-from opentelemetry.exporter.otlp.proto.http.metric_exporter import OTLPMetricExporter
-
-if otel_endpoint:
-    metric_exporter = OTLPMetricExporter(endpoint=f"{otel_endpoint}/v1/metrics", headers=otel_headers)
-    metric_reader = PeriodicExportingMetricReader(metric_exporter)
-    meter_provider = MeterProvider(resource=resource, metric_readers=[metric_reader])
-    logging.info(f"OTLP metric exporter enabled -> {otel_endpoint}")
-else:
-    logging.info("OTEL_EXPORTER_OTLP_ENDPOINT not set — OTLP metric exporter disabled")
-    meter_provider = MeterProvider(resource=resource)
-set_meter_provider(meter_provider)
-
-# Define meters for key business/compliance events
-metrics_meter = get_meter(__name__)
-export_job_counter = metrics_meter.create_counter(
-    name="export_jobs_total",
-    description="Total export jobs run",
-)
-compliance_action_counter = metrics_meter.create_counter(
-    name="compliance_actions_total",
-    description="Total compliance actions performed",
-)
-anomaly_detected_counter = metrics_meter.create_counter(
-    name="anomalies_detected_total",
-    description="Total anomalies detected",
-)
-http_request_counter = metrics_meter.create_counter(
-    name="http_requests_total",
-    description="Total HTTP requests",
-)
-http_request_duration = metrics_meter.create_histogram(
-    name="http_request_duration_ms",
-    description="HTTP request duration in milliseconds",
-    unit="ms",
-)
 
 app = FastAPI(
     title="Financial AI Observability Platform",
@@ -165,7 +97,6 @@ app = FastAPI(
 app.include_router(approval.router)
 
 app.state.limiter = limiter
-from slowapi import _rate_limit_exceeded_handler
 app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
 
 # Configure CORS - supports multiple origins via CORS_ORIGINS env var
@@ -200,19 +131,7 @@ from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 FastAPIInstrumentor.instrument_app(app)
 
 # Custom metrics middleware
-import time as _time
-
-@app.middleware("http")
-async def metrics_middleware(request: Request, call_next):
-    start = _time.perf_counter()
-    response = await call_next(request)
-    duration_ms = (_time.perf_counter() - start) * 1000
-    route = request.url.path
-    method = request.method
-    status = str(response.status_code)
-    http_request_counter.add(1, {"http_method": method, "http_route": route, "http_status_code": status})
-    http_request_duration.record(duration_ms, {"http_method": method, "http_route": route, "http_status_code": status})
-    return response
+app.middleware("http")(metrics_middleware)
 
 # Start scheduled exports
 schedule_exports()

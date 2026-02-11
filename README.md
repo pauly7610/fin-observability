@@ -3,7 +3,7 @@
 [![CI](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
 [![Deploy](https://img.shields.io/badge/Railway-deployed-blueviolet?logo=railway)](https://fin-observability-production.up.railway.app)
 [![Grafana](https://img.shields.io/badge/Grafana-dashboard-F46800?logo=grafana)](https://pauly7610.grafana.net)
-[![Tests](https://img.shields.io/badge/tests-60%2F60-brightgreen?logo=pytest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-82%2F82-brightgreen?logo=pytest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Node](https://img.shields.io/badge/node-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
 [![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
@@ -110,7 +110,7 @@ Endpoints covered: `/health`, `/transactions`, `/compliance`, `/incidents`, `/sy
 ### Run Tests
 
 ```bash
-DATABASE_URL=sqlite:///./test.db pytest apps/backend/tests/ -v   # 60 tests
+DATABASE_URL=sqlite:///./test.db pytest apps/backend/tests/ -v   # 82 tests
 ```
 
 ## Project Structure

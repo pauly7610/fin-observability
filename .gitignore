@@ -56,6 +56,7 @@ wheels/
 # === Environment variables / Secrets ===
 .env
 .env.*
+!.env.production
 .env.local
 .env.development.local
 .env.production.local
@@ -71,6 +72,7 @@ db.sqlite3
 **/node_modules/
 **/.env
 **/.env.*
+!**/.env.production
 **/__pycache__/
 
 **/dist/
