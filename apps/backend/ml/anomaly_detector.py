@@ -125,6 +125,10 @@ class AnomalyDetector:
             pickle.dump(self.scaler, f)
         
         logger.info(f"Trained and saved anomaly detector model v{self.VERSION}")
+        
+        # Set reference distribution for drift detection
+        from .drift_detector import get_drift_detector
+        get_drift_detector().set_reference(X)
     
     def _extract_features(
         self,
@@ -169,6 +173,10 @@ class AnomalyDetector:
         """
         features = self._extract_features(amount, timestamp, txn_type)
         features_scaled = self.scaler.transform(features)
+        
+        # Record features for drift detection
+        from .drift_detector import get_drift_detector
+        get_drift_detector().record(features[0])
         
         # Isolation Forest decision_function returns anomaly score
         # More negative = more anomalous
@@ -299,6 +307,10 @@ class AnomalyDetector:
         self._training_samples = len(normal_rows)
         
         logger.info(f"Retrained model: {old_version} -> {new_version} on {len(normal_rows)} samples")
+        
+        # Update drift detector reference with new training data
+        from .drift_detector import get_drift_detector
+        get_drift_detector().set_reference(X)
         
         return {
             "status": "ok",

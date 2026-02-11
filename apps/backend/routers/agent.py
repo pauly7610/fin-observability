@@ -800,6 +800,47 @@ async def get_retrain_status(
     return pipeline.get_status()
 
 
+@router.get("/compliance/drift/status")
+async def get_drift_status(
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
+):
+    """Get the current drift detector status, thresholds, and recent history."""
+    from ..ml.drift_detector import get_drift_detector
+
+    return get_drift_detector().get_status()
+
+
+@router.post("/compliance/drift/check")
+@limiter.limit("5/minute")
+async def check_drift(
+    request: Request,
+    user=Depends(require_role(["admin", "compliance"])),
+):
+    """
+    Manually trigger a drift check.
+    Returns per-feature PSI and KS test results with retrain recommendation.
+    """
+    from ..ml.drift_detector import get_drift_detector
+
+    return get_drift_detector().check_drift()
+
+
+@router.post("/compliance/retrain/drift")
+@limiter.limit("1/minute")
+async def trigger_drift_retrain(
+    request: Request,
+    user=Depends(require_role(["admin"])),
+):
+    """
+    Admin-only: Check drift and retrain only if drift is detected.
+    Preferred over blind retraining — avoids unnecessary model churn.
+    """
+    from ..ml.retraining_pipeline import get_retraining_pipeline
+
+    pipeline = get_retraining_pipeline()
+    return pipeline.run_if_drifted()
+
+
 @router.post("/compliance/explain")
 async def explain_compliance_decision(
     request: Request,

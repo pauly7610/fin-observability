@@ -1,11 +1,16 @@
 """
 Automated Retraining Pipeline for the Anomaly Detection Model.
 
-Runs on a configurable schedule (default: weekly) via APScheduler.
-- Loads the latest dataset CSV
-- Retrains the Isolation Forest model with auto-versioning
-- Logs before/after metrics to OpenTelemetry
-- Saves model to disk
+Supports two retraining modes:
+1. Scheduled (cron): Runs on a configurable interval (default: weekly) via APScheduler
+2. Drift-triggered: Checks feature drift (PSI/KS) and retrains only when drift is detected
+
+Pipeline steps:
+- Check drift status (if drift mode)
+- Snapshot current model metrics (before)
+- Retrain the Isolation Forest model with auto-versioning
+- Snapshot new model metrics (after)
+- Log delta to OpenTelemetry
 - Can also be triggered manually via API endpoint
 """
 import logging
@@ -100,12 +105,50 @@ class RetrainingPipeline:
                     "timestamp": datetime.utcnow().isoformat(),
                 }
 
+    def run_if_drifted(self) -> Dict[str, Any]:
+        """
+        Check for feature drift and retrain only if drift is detected.
+        This is the preferred production mode — avoids unnecessary retraining.
+        """
+        with tracer.start_as_current_span("retraining_pipeline.run_if_drifted") as span:
+            from .drift_detector import get_drift_detector
+
+            drift_detector = get_drift_detector()
+            drift_result = drift_detector.check_drift()
+            span.set_attribute("drift.status", drift_result.get("status", "unknown"))
+
+            if drift_result.get("should_retrain"):
+                logger.info(
+                    f"Drift detected (PSI={drift_result.get('max_psi', 0):.4f}), "
+                    f"triggering retraining..."
+                )
+                retrain_result = self.run()
+                retrain_result["trigger"] = "drift"
+                retrain_result["drift"] = drift_result
+                return retrain_result
+            else:
+                logger.info(
+                    f"No drift detected (PSI={drift_result.get('max_psi', 0):.4f}), "
+                    f"skipping retraining"
+                )
+                return {
+                    "status": "skipped",
+                    "reason": "no_drift",
+                    "trigger": "drift_check",
+                    "drift": drift_result,
+                    "timestamp": datetime.utcnow().isoformat(),
+                }
+
     def get_status(self) -> Dict[str, Any]:
-        """Return pipeline status."""
+        """Return pipeline status including drift detector state."""
+        from .drift_detector import get_drift_detector
+
+        drift_detector = get_drift_detector()
         return {
             "last_retrain": self._last_retrain.isoformat() if self._last_retrain else None,
             "retrain_count": self._retrain_count,
             "schedule_hours": RETRAIN_INTERVAL_HOURS,
+            "drift": drift_detector.get_status(),
         }
 
 
