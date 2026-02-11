@@ -72,7 +72,7 @@ processors:
           - set(attributes["service.version"], resource.attributes["service.version"])
 
 exporters:
-  logging:
+  debug:
     verbosity: normal
     sampling_initial: 5
     sampling_thereafter: 200
@@ -87,11 +87,11 @@ service:
     traces:
       receivers: [otlp]
       processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
-      exporters: [otlphttp/grafana_cloud, grafanacloud, logging]
+      exporters: [otlphttp/grafana_cloud, grafanacloud, debug]
     metrics:
       receivers: [otlp, hostmetrics]
       processors: [resourcedetection, transform/drop_unneeded_resource_attributes, transform/add_resource_attributes_as_metric_attributes, batch]
-      exporters: [otlphttp/grafana_cloud, logging]
+      exporters: [otlphttp/grafana_cloud, debug]
     metrics/grafanacloud:
       receivers: [grafanacloud]
       processors: [batch]
@@ -99,4 +99,4 @@ service:
     logs:
       receivers: [otlp]
       processors: [resourcedetection, transform/drop_unneeded_resource_attributes, batch]
-      exporters: [otlphttp/grafana_cloud, logging]
+      exporters: [otlphttp/grafana_cloud, debug]
