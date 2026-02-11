@@ -78,7 +78,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "(sum(rate(http_requests_total{http_status_code=~\"5..\"}[5m])) or vector(0)) / sum(rate(http_requests_total[5m]))",
+          "expr": "clamp_min(sum(rate(http_requests_total{http_status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m])), 0) or vector(0)",
           "legendFormat": "error %"
         }
       ]
@@ -392,20 +392,13 @@
       "id": 11,
       "options": {},
       "title": "Recent Traces",
-      "type": "traces",
+      "type": "table",
       "targets": [
         {
-          "queryType": "traceqlSearch",
-          "limit": 20,
-          "filters": [
-            {
-              "id": "service-name",
-              "tag": "service.name",
-              "operator": "=",
-              "value": ["fin-observability"],
-              "scope": "resource"
-            }
-          ]
+          "datasource": { "type": "tempo", "uid": "grafanacloud-pauly7610-traces" },
+          "queryType": "traceql",
+          "query": "{}",
+          "limit": 20
         }
       ]
     }

@@ -33,6 +33,7 @@ ENDPOINTS = [
     {"method": "GET", "path": "/agent/compliance/drift/status", "weight": 5, "auth": True},
     {"method": "GET", "path": "/agent/compliance/retrain/status", "weight": 5, "auth": True},
     {"method": "POST", "path": "/agent/compliance/monitor", "weight": 10, "body": "compliance_monitor", "auth": True},
+    {"method": "POST", "path": "/anomaly/detect", "weight": 5, "body": "anomaly_detect"},
 ]
 
 CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF"]
@@ -68,6 +69,21 @@ def generate_transaction_body():
     }
 
 
+def generate_anomaly_detect_body():
+    data = []
+    for _ in range(random.randint(1, 5)):
+        amount = round(random.uniform(10, 50000), 2)
+        if random.random() < 0.1:
+            amount = round(random.uniform(200000, 1000000), 2)
+        data.append({
+            "amount": amount,
+            "timestamp": datetime.utcnow().isoformat() + "Z",
+            "currency": random.choice(CURRENCIES),
+            "type": random.choice(["wire", "ach", "check", "internal"]),
+        })
+    return {"data": data, "model_type": "isolation_forest"}
+
+
 def generate_compliance_body():
     amount = round(random.uniform(100, 200000), 2)
     if random.random() < 0.1:
@@ -99,6 +115,8 @@ def make_request(base_url, endpoint):
                 body = generate_transaction_body()
             elif endpoint.get("body") == "compliance_monitor":
                 body = generate_compliance_body()
+            elif endpoint.get("body") == "anomaly_detect":
+                body = generate_anomaly_detect_body()
             else:
                 body = {}
             resp = requests.post(url, json=body, headers=headers, timeout=10)
