@@ -86,10 +86,10 @@ export const OutroScene: React.FC = () => {
       >
         {[
           { icon: '🔍', text: 'Anomaly Detection' },
-          { icon: '�', text: 'SHAP Explainability' },
+          { icon: '📊', text: 'SHAP Explainability' },
           { icon: '⚡', text: 'ONNX Inference' },
           { icon: '🔄', text: 'Auto-Retraining' },
-          { icon: '�', text: 'OTel Observability' },
+          { icon: '📡', text: 'OTel Observability' },
           { icon: '🚀', text: 'Railway Deploy' },
         ].map((feature) => (
           <div
