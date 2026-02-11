@@ -101,9 +101,10 @@ if grafana_instance_id and grafana_api_token:
     import base64
     credentials = base64.b64encode(f"{grafana_instance_id}:{grafana_api_token}".encode()).decode()
     otel_headers["Authorization"] = f"Basic {credentials}"
-    if not otel_endpoint:
-        otel_endpoint = "https://otlp-gateway-prod-us-east-3.grafana.net/otlp"
+    otel_endpoint = "https://otlp-gateway-prod-us-east-3.grafana.net/otlp"
     logging.info(f"Grafana Cloud OTLP auth configured for instance {grafana_instance_id}")
+elif otel_endpoint and not otel_endpoint.startswith("http"):
+    otel_endpoint = f"http://{otel_endpoint}"
 
 if otel_endpoint:
     otlp_exporter = OTLPSpanExporter(endpoint=f"{otel_endpoint}/v1/traces", headers=otel_headers)
