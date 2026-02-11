@@ -1,6 +1,17 @@
 # Financial AI Observability Platform
 
-> **Live:** [fin-observability-production.up.railway.app](https://fin-observability-production.up.railway.app) | **Grafana:** [pauly7610.grafana.net](https://pauly7610.grafana.net) | **60/60 tests passing**
+[![CI](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
+[![Deploy](https://img.shields.io/badge/Railway-deployed-blueviolet?logo=railway)](https://fin-observability-production.up.railway.app)
+[![Grafana](https://img.shields.io/badge/Grafana-dashboard-F46800?logo=grafana)](https://pauly7610.grafana.net)
+[![Tests](https://img.shields.io/badge/tests-60%2F60-brightgreen?logo=pytest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
+[![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![Node](https://img.shields.io/badge/node-20+-339933?logo=node.js&logoColor=white)](https://nodejs.org/)
+[![FastAPI](https://img.shields.io/badge/FastAPI-0.111-009688?logo=fastapi&logoColor=white)](https://fastapi.tiangolo.com/)
+[![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](https://nextjs.org/)
+[![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-1.39-7B61FF?logo=opentelemetry)](https://opentelemetry.io/)
+[![License](https://img.shields.io/badge/license-proprietary-red)](./LICENSE)
+
+> **Live:** [fin-observability-production.up.railway.app](https://fin-observability-production.up.railway.app) | **Grafana:** [pauly7610.grafana.net](https://pauly7610.grafana.net)
 
 ## Architecture
 
@@ -91,7 +102,10 @@ SEED_TRANSACTIONS=50000 DATABASE_URL="postgresql://..." python -m apps.backend.s
 ```bash
 python scripts/load_test.py --requests 200 --concurrency 5
 python scripts/load_test.py --base-url http://localhost:8000 --requests 1000
+python scripts/load_test.py --requests 2000 --concurrency 20   # stress test
 ```
+
+Endpoints covered: `/health`, `/transactions`, `/compliance`, `/incidents`, `/system-metrics`, `/auth/roles`, `/agent/compliance/monitor`, `/agent/compliance/drift/status`, `/agent/compliance/retrain/status`, `/anomaly/detect`
 
 ### Run Tests
 
@@ -171,22 +185,26 @@ GRAFANA_CLOUD_INSTANCE_ID=<instance_id>
 GRAFANA_CLOUD_API_TOKEN=<glc_token>
 ```
 
-### Grafana Dashboard
+### Grafana Dashboard (12 Panels)
 
-Import `grafana/dashboards/fin-observability.json` into Grafana Cloud:
-- **Overview** — Request rate, error rate, anomaly count, compliance actions
-- **API Performance** — Latency by endpoint (p50/p95), request rate by status code
-- **Business Metrics** — Anomalies/s, compliance actions/s, export jobs/s
-- **Infrastructure** — Host CPU load, memory usage
-- **Traces** — Recent traces from Tempo
+Import `grafana/dashboards/fin-observability.json` into Grafana Cloud → Dashboards → Import:
 
-### Custom Metrics
+| Section | Panels |
+|---------|--------|
+| **Overview** | Request Rate, Error Rate (5xx), Anomalies Detected, Compliance Actions |
+| **API Performance** | API Latency by Endpoint (p50/p95), Request Rate by Status Code, Request Rate by Endpoint, Business Metrics |
+| **Infrastructure** | Host CPU Load Average (1m/5m/15m), Host Memory Usage (used/free/cached) |
+| **Traces** | Recent Traces (Tempo — trace ID, service, endpoint, duration) |
+
+### Custom Metrics (OTLP → Prometheus)
 
 | Metric | Type | Description |
 |--------|------|-------------|
-| `anomalies_detected_total` | Counter | Total anomalies flagged by ML model |
-| `compliance_actions_total` | Counter | Total compliance actions performed |
-| `export_jobs_total` | Counter | Total scheduled export jobs |
+| `http_requests_total` | Counter | HTTP requests by method, route, status code |
+| `http_request_duration_ms` | Histogram | Request latency in ms by method, route, status code |
+| `anomalies_detected_total` | Counter | Anomalies flagged by ML model |
+| `compliance_actions_total` | Counter | Compliance actions performed |
+| `export_jobs_total` | Counter | Scheduled export jobs |
 
 ## Drift Detection & Auto-Retraining
 
