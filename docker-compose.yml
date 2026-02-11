@@ -1,0 +1,65 @@
+version: "3.9"
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: fin_observability
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  otel-collector:
+    build:
+      context: ./otel-collector
+      dockerfile: Dockerfile
+    ports:
+      - "4317:4317"
+      - "4318:4318"
+    environment:
+      - GRAFANA_CLOUD_API_KEY=${GRAFANA_CLOUD_API_KEY:-}
+    depends_on:
+      - postgres
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://postgres:postgres@postgres:5432/fin_observability
+      REDIS_URL: redis://redis:6379/0
+      OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4317
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:-fin-observability-dev-secret-key}
+      CORS_ORIGINS: ${CORS_ORIGINS:-http://localhost:3000}
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      AUTH_MODE: header
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      otel-collector:
+        condition: service_started
+
+volumes:
+  pgdata:

@@ -1,0 +1,3 @@
+name: fin-observability
+runtime: nodejs
+description: Infrastructure as Code for Financial Observability Platform on Railway

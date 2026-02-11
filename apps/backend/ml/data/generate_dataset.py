@@ -1,12 +1,14 @@
 """
 Generate a realistic anonymized financial transaction dataset for model training.
-Produces a CSV with ~10,000 transactions following real-world distributions.
+Produces a CSV with configurable size (default: 1,000,000 transactions).
 
 Enhanced features:
 - Temporal patterns: quarter-end spikes, month-end surges, holiday lulls
 - Account behavior profiles: each account has a "normal" baseline
 - Geographic risk scoring: high-risk jurisdictions
 - Velocity features: transaction frequency per account per day
+- Configurable via DATASET_SIZE env var (default: 1000000)
+- Batch CSV writing for memory efficiency at scale
 """
 import csv
 import os
@@ -20,6 +22,7 @@ fake = Faker()
 Faker.seed(42)
 random.seed(42)
 
+DEFAULT_DATASET_SIZE = int(os.environ.get("DATASET_SIZE", "1000000"))
 OUTPUT_PATH = os.path.join(os.path.dirname(__file__), "transactions.csv")
 
 # Distribution parameters based on real financial patterns
@@ -165,16 +168,17 @@ def _compute_velocity(transactions: list) -> list:
     return transactions
 
 
-def generate_dataset(n_samples: int = 10000) -> list:
+def generate_dataset(n_samples: int = DEFAULT_DATASET_SIZE) -> list:
     """Generate full dataset with realistic class distribution and behavioral profiles."""
     transactions = []
     base_date = datetime(2024, 1, 1)
-    # Create a pool of ~200 accounts for realistic repeat behavior
-    account_pool = [fake.bban() for _ in range(200)]
+    # Scale account pool with dataset size (5K accounts for 1M transactions)
+    n_accounts = max(200, min(n_samples // 200, 5000))
+    account_pool = [fake.bban() for _ in range(n_accounts)]
 
     for i in range(n_samples):
-        week_offset = (i // 100) * 7  # Spread across weeks
-        week_base = base_date + timedelta(days=week_offset)
+        week_offset = (i // 1000) * 7  # Spread across weeks
+        week_base = base_date + timedelta(days=week_offset % 730)  # 2 years of data
         account = random.choice(account_pool)
 
         r = random.random()
@@ -185,7 +189,7 @@ def generate_dataset(n_samples: int = 10000) -> list:
         else:
             txn = generate_violation_transaction(week_base, account)
 
-        txn["id"] = f"txn_{i:05d}"
+        txn["id"] = f"txn_{i:07d}"
         txn["account"] = account
         transactions.append(txn)
 
@@ -209,18 +213,70 @@ def write_csv(transactions: list, path: str = OUTPUT_PATH):
     print(f"Generated {len(transactions)} transactions -> {path}")
 
 
-if __name__ == "__main__":
-    txns = generate_dataset(10000)
-    write_csv(txns)
+def generate_and_write_batched(
+    n_samples: int = DEFAULT_DATASET_SIZE,
+    batch_size: int = 50000,
+    path: str = OUTPUT_PATH,
+):
+    """
+    Generate and write dataset in batches for memory efficiency at scale.
+    Writes directly to CSV without holding entire dataset in memory.
+    Velocity features are computed per-batch (approximate but scalable).
+    """
+    import time
+    start = time.time()
+    base_date = datetime(2024, 1, 1)
+    n_accounts = max(200, min(n_samples // 200, 5000))
+    account_pool = [fake.bban() for _ in range(n_accounts)]
 
-    # Print distribution summary
-    from collections import Counter
-    labels = Counter(t["label"] for t in txns)
-    print(f"Distribution: {dict(labels)}")
-    amounts = [t["amount"] for t in txns]
-    print(f"Amount range: ${min(amounts):,.2f} - ${max(amounts):,.2f}")
-    print(f"Mean amount: ${sum(amounts)/len(amounts):,.2f}")
-    jurisdictions = Counter(t["jurisdiction"] for t in txns)
-    print(f"Jurisdictions: {dict(jurisdictions)}")
-    velocities = [t["daily_txn_count"] for t in txns]
-    print(f"Velocity range: {min(velocities)}-{max(velocities)} txns/day")
+    total_written = 0
+    label_counts = defaultdict(int)
+
+    with open(path, "w", newline="") as f:
+        writer = csv.DictWriter(f, fieldnames=FIELDNAMES)
+        writer.writeheader()
+
+        for batch_start in range(0, n_samples, batch_size):
+            batch_end = min(batch_start + batch_size, n_samples)
+            batch = []
+
+            for i in range(batch_start, batch_end):
+                week_offset = (i // 1000) * 7
+                week_base = base_date + timedelta(days=week_offset % 730)
+                account = random.choice(account_pool)
+
+                r = random.random()
+                if r < NORMAL_WEIGHT:
+                    txn = generate_normal_transaction(week_base, account)
+                elif r < NORMAL_WEIGHT + SUSPICIOUS_WEIGHT:
+                    txn = generate_suspicious_transaction(week_base, account)
+                else:
+                    txn = generate_violation_transaction(week_base, account)
+
+                txn["id"] = f"txn_{i:07d}"
+                txn["account"] = account
+                label_counts[txn["label"]] += 1
+                batch.append(txn)
+
+            # Compute velocity within batch
+            batch = _compute_velocity(batch)
+            writer.writerows(batch)
+            total_written += len(batch)
+
+            elapsed = time.time() - start
+            pct = (total_written / n_samples) * 100
+            print(f"  [{pct:5.1f}%] Written {total_written:,} / {n_samples:,} ({elapsed:.1f}s)")
+
+    elapsed = time.time() - start
+    print(f"\nGenerated {total_written:,} transactions -> {path} ({elapsed:.1f}s)")
+    print(f"Distribution: {dict(label_counts)}")
+    file_size_mb = os.path.getsize(path) / (1024 * 1024)
+    print(f"File size: {file_size_mb:.1f} MB")
+    return total_written
+
+
+if __name__ == "__main__":
+    import sys
+    n = int(sys.argv[1]) if len(sys.argv) > 1 else DEFAULT_DATASET_SIZE
+    print(f"Generating {n:,} transactions...")
+    generate_and_write_batched(n)

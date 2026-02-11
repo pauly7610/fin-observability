@@ -109,3 +109,6 @@ yarn-error.log*
 # ML model artifacts
 models/
 *.pkl
+
+# Generated datasets (regenerate with: python -m apps.backend.ml.data.generate_dataset)
+apps/backend/ml/data/transactions.csv
