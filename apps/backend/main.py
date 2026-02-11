@@ -147,6 +147,15 @@ anomaly_detected_counter = metrics_meter.create_counter(
     name="anomalies_detected_total",
     description="Total anomalies detected",
 )
+http_request_counter = metrics_meter.create_counter(
+    name="http_requests_total",
+    description="Total HTTP requests",
+)
+http_request_duration = metrics_meter.create_histogram(
+    name="http_request_duration_ms",
+    description="HTTP request duration in milliseconds",
+    unit="ms",
+)
 
 app = FastAPI(
     title="Financial AI Observability Platform",
@@ -189,6 +198,21 @@ app.include_router(export_metadata.router)
 # Instrument FastAPI with OpenTelemetry
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
 FastAPIInstrumentor.instrument_app(app)
+
+# Custom metrics middleware
+import time as _time
+
+@app.middleware("http")
+async def metrics_middleware(request: Request, call_next):
+    start = _time.perf_counter()
+    response = await call_next(request)
+    duration_ms = (_time.perf_counter() - start) * 1000
+    route = request.url.path
+    method = request.method
+    status = str(response.status_code)
+    http_request_counter.add(1, {"http_method": method, "http_route": route, "http_status_code": status})
+    http_request_duration.record(duration_ms, {"http_method": method, "http_route": route, "http_status_code": status})
+    return response
 
 # Start scheduled exports
 schedule_exports()

@@ -44,7 +44,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"fin-observability\"}[5m]))",
+          "expr": "sum(rate(http_requests_total{job=\"fin-observability\"}[5m])) or sum(rate(http_requests_total[5m]))",
           "legendFormat": "req/s"
         }
       ]
@@ -78,7 +78,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"fin-observability\",http_status_code=~\"5..\"}[5m])) / sum(rate(http_server_request_duration_seconds_count{service_name=\"fin-observability\"}[5m]))",
+          "expr": "sum(rate(http_requests_total{http_status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
           "legendFormat": "error %"
         }
       ]
@@ -112,7 +112,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(anomalies_detected_total{service_name=\"fin-observability\"}) or vector(0)",
+          "expr": "sum(anomalies_detected_total) or vector(0)",
           "legendFormat": "total"
         }
       ]
@@ -146,7 +146,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(compliance_actions_total{service_name=\"fin-observability\"}) or vector(0)",
+          "expr": "sum(compliance_actions_total) or vector(0)",
           "legendFormat": "total"
         }
       ]
@@ -172,7 +172,7 @@
             "showPoints": "never",
             "spanNulls": true
           },
-          "unit": "s"
+          "unit": "ms"
         }
       },
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 6 },
@@ -185,11 +185,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_server_request_duration_seconds_bucket{service_name=\"fin-observability\"}[5m])) by (le, http_route))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket[5m])) by (le, http_route))",
           "legendFormat": "p95 {{http_route}}"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_server_request_duration_seconds_bucket{service_name=\"fin-observability\"}[5m])) by (le, http_route))",
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_ms_bucket[5m])) by (le, http_route))",
           "legendFormat": "p50 {{http_route}}"
         }
       ]
@@ -219,7 +219,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"fin-observability\"}[5m])) by (http_status_code)",
+          "expr": "sum(rate(http_requests_total[5m])) by (http_status_code)",
           "legendFormat": "{{http_status_code}}"
         }
       ]
@@ -250,7 +250,7 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(http_server_request_duration_seconds_count{service_name=\"fin-observability\"}[5m])) by (http_route)",
+          "expr": "sum(rate(http_requests_total[5m])) by (http_route)",
           "legendFormat": "{{http_route}}"
         }
       ]
@@ -281,15 +281,15 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(anomalies_detected_total{service_name=\"fin-observability\"}[5m]))",
+          "expr": "sum(rate(anomalies_detected_total[5m]))",
           "legendFormat": "Anomalies/s"
         },
         {
-          "expr": "sum(rate(compliance_actions_total{service_name=\"fin-observability\"}[5m]))",
+          "expr": "sum(rate(compliance_actions_total[5m]))",
           "legendFormat": "Compliance Actions/s"
         },
         {
-          "expr": "sum(rate(export_jobs_total{service_name=\"fin-observability\"}[5m]))",
+          "expr": "sum(rate(export_jobs_total[5m]))",
           "legendFormat": "Export Jobs/s"
         }
       ]
@@ -418,5 +418,5 @@
   "timezone": "browser",
   "title": "Fin Observability - Overview",
   "uid": "fin-observability-overview",
-  "version": 1
+  "version": 2
 }
