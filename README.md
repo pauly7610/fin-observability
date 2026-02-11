@@ -269,8 +269,8 @@ OTEL_SERVICE_NAME=fin-observability
 | **Frontend** | Next.js 16, React 19, TailwindCSS, Recharts, TanStack Query |
 | **Observability** | OpenTelemetry SDK, OTel Collector contrib, Grafana Cloud (Tempo + Prometheus) |
 | **Infra** | Railway, Docker Compose, Pulumi IaC |
-| **CI/CD** | GitHub Actions (pytest + Next.js build) |
-| **Testing** | pytest (60 tests), load_test.py |
+| **CI/CD** | GitHub Actions (pytest + Jest + Next.js build) |
+| **Testing** | pytest (82 backend), Jest (2 frontend), load_test.py |
 
 ## License
 
