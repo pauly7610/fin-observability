@@ -18,12 +18,27 @@ SQLALCHEMY_DATABASE_URL = os.getenv(
     f"postgresql://{POSTGRES_USER}:{POSTGRES_PASSWORD}@{POSTGRES_HOST}:{POSTGRES_PORT}/{POSTGRES_DB}",
 )
 
-# SQLite needs check_same_thread=False
+# Railway uses postgres:// but SQLAlchemy requires postgresql://
+if SQLALCHEMY_DATABASE_URL.startswith("postgres://"):
+    SQLALCHEMY_DATABASE_URL = SQLALCHEMY_DATABASE_URL.replace(
+        "postgres://", "postgresql://", 1
+    )
+
+# SQLite needs check_same_thread=False; Postgres gets connection pooling
 connect_args = {}
+engine_kwargs = {}
 if SQLALCHEMY_DATABASE_URL.startswith("sqlite"):
     connect_args["check_same_thread"] = False
+else:
+    engine_kwargs = {
+        "pool_size": 10,
+        "max_overflow": 20,
+        "pool_timeout": 30,
+        "pool_recycle": 1800,
+        "pool_pre_ping": True,
+    }
 
-engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args)
+engine = create_engine(SQLALCHEMY_DATABASE_URL, connect_args=connect_args, **engine_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 Base = declarative_base()
