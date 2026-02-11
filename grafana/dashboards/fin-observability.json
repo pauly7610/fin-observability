@@ -44,7 +44,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{job=\"fin-observability\"}[5m])) or sum(rate(http_requests_total[5m]))",
+          "expr": "sum(rate(http_requests_total[5m]))",
           "legendFormat": "req/s"
         }
       ]
@@ -78,7 +78,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(rate(http_requests_total{http_status_code=~\"5..\"}[5m])) / sum(rate(http_requests_total[5m]))",
+          "expr": "(sum(rate(http_requests_total{http_status_code=~\"5..\"}[5m])) or vector(0)) / sum(rate(http_requests_total[5m]))",
           "legendFormat": "error %"
         }
       ]
@@ -112,7 +112,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(anomalies_detected_total) or vector(0)",
+          "expr": "sum(increase(anomalies_detected_total[1h])) or vector(0)",
           "legendFormat": "total"
         }
       ]
@@ -146,7 +146,7 @@
       "type": "stat",
       "targets": [
         {
-          "expr": "sum(compliance_actions_total) or vector(0)",
+          "expr": "sum(increase(compliance_actions_total[1h])) or vector(0)",
           "legendFormat": "total"
         }
       ]
@@ -185,11 +185,11 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_ms_bucket[5m])) by (le, http_route))",
+          "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_ms_milliseconds_bucket[5m])) by (le, http_route))",
           "legendFormat": "p95 {{http_route}}"
         },
         {
-          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_ms_bucket[5m])) by (le, http_route))",
+          "expr": "histogram_quantile(0.50, sum(rate(http_request_duration_ms_milliseconds_bucket[5m])) by (le, http_route))",
           "legendFormat": "p50 {{http_route}}"
         }
       ]
@@ -281,16 +281,16 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "sum(rate(anomalies_detected_total[5m]))",
-          "legendFormat": "Anomalies/s"
+          "expr": "sum(increase(anomalies_detected_total[5m]))",
+          "legendFormat": "Anomalies"
         },
         {
-          "expr": "sum(rate(compliance_actions_total[5m]))",
-          "legendFormat": "Compliance Actions/s"
+          "expr": "sum(increase(compliance_actions_total[5m]))",
+          "legendFormat": "Compliance Actions"
         },
         {
-          "expr": "sum(rate(export_jobs_total[5m]))",
-          "legendFormat": "Export Jobs/s"
+          "expr": "sum(increase(export_jobs_total[5m]))",
+          "legendFormat": "Export Jobs"
         }
       ]
     },
@@ -366,15 +366,15 @@
       "type": "timeseries",
       "targets": [
         {
-          "expr": "system_memory_usage{state=\"used\"}",
+          "expr": "system_memory_usage_bytes{state=\"used\"}",
           "legendFormat": "Used"
         },
         {
-          "expr": "system_memory_usage{state=\"free\"}",
+          "expr": "system_memory_usage_bytes{state=\"free\"}",
           "legendFormat": "Free"
         },
         {
-          "expr": "system_memory_usage{state=\"cached\"}",
+          "expr": "system_memory_usage_bytes{state=\"cached\"}",
           "legendFormat": "Cached"
         }
       ]
@@ -387,7 +387,7 @@
       "type": "row"
     },
     {
-      "datasource": { "type": "tempo", "uid": "grafanacloud-traces" },
+      "datasource": { "type": "tempo", "uid": "grafanacloud-pauly7610-traces" },
       "gridPos": { "h": 8, "w": 24, "x": 0, "y": 32 },
       "id": 11,
       "options": {},

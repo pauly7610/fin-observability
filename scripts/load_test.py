@@ -32,6 +32,7 @@ ENDPOINTS = [
     {"method": "POST", "path": "/transactions", "weight": 25, "body": "transaction"},
     {"method": "GET", "path": "/agent/compliance/drift/status", "weight": 5, "auth": True},
     {"method": "GET", "path": "/agent/compliance/retrain/status", "weight": 5, "auth": True},
+    {"method": "POST", "path": "/agent/compliance/monitor", "weight": 10, "body": "compliance_monitor", "auth": True},
 ]
 
 CURRENCIES = ["USD", "EUR", "GBP", "JPY", "CHF"]
@@ -67,6 +68,20 @@ def generate_transaction_body():
     }
 
 
+def generate_compliance_body():
+    amount = round(random.uniform(100, 200000), 2)
+    if random.random() < 0.1:
+        amount = round(random.uniform(500000, 2000000), 2)
+    return {
+        "id": f"CM-{uuid.uuid4().hex[:12].upper()}",
+        "amount": amount,
+        "counterparty": random.choice(["ACME Corp", "Goldman Sachs", "JPMorgan", "Citadel", "Two Sigma"]),
+        "account": f"{random.randint(1000000000, 9999999999)}",
+        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "type": random.choice(["wire", "ach", "check", "internal"]),
+    }
+
+
 def make_request(base_url, endpoint):
     url = f"{base_url}{endpoint['path']}"
     headers = {"Content-Type": "application/json"}
@@ -80,7 +95,12 @@ def make_request(base_url, endpoint):
         if endpoint["method"] == "GET":
             resp = requests.get(url, headers=headers, timeout=10)
         elif endpoint["method"] == "POST":
-            body = generate_transaction_body() if endpoint.get("body") == "transaction" else {}
+            if endpoint.get("body") == "transaction":
+                body = generate_transaction_body()
+            elif endpoint.get("body") == "compliance_monitor":
+                body = generate_compliance_body()
+            else:
+                body = {}
             resp = requests.post(url, json=body, headers=headers, timeout=10)
         else:
             return None
