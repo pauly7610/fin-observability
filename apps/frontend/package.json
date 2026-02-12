@@ -44,7 +44,7 @@
     "react-dom": "^19.1.0",
     "recharts": "^2.15.3",
     "remotion": "^4.0.419",
-    "zod": "^3.25.64",
+    "zod": "3.22.3",
     "zustand": "^4.5.0"
   },
   "devDependencies": {

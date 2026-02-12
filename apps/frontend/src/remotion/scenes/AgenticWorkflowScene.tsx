@@ -1,197 +1,203 @@
 import { AbsoluteFill, useCurrentFrame, interpolate, spring, useVideoConfig } from 'remotion';
 
-const stages = [
-  { name: 'Triage', icon: '🔍', status: 'complete', color: '#22c55e' },
-  { name: 'Remediate', icon: '🔧', status: 'complete', color: '#22c55e' },
-  { name: 'Compliance', icon: '📋', status: 'active', color: '#3b82f6' },
-  { name: 'Audit Summary', icon: '📊', status: 'pending', color: '#64748b' },
-];
-
 export const AgenticWorkflowScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const headerOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: 'clamp' });
+  const headerOpacity = interpolate(frame, [0, 25], [0, 1], { extrapolateRight: 'clamp' });
+  const taglineOpacity = interpolate(frame, [15, 35], [0, 1], { extrapolateRight: 'clamp' });
 
-  // Stagger the stage animations
-  const getStageAnimation = (index: number) => {
-    const startFrame = 30 + index * 25;
-    const opacity = interpolate(frame, [startFrame, startFrame + 20], [0, 1], { extrapolateRight: 'clamp' });
-    const scale = spring({ frame: frame - startFrame, fps, from: 0.8, to: 1, durationInFrames: 20 });
-    return { opacity, scale };
-  };
+  const queueOpacity = interpolate(frame, [45, 70], [0, 1], { extrapolateRight: 'clamp' });
+  const queueX = spring({ frame: frame - 45, fps, from: -80, to: 0, durationInFrames: 30 });
 
-  // Progress line animation
-  const progressWidth = interpolate(frame, [30, 130], [0, 75], { extrapolateRight: 'clamp' });
+  const buttonPressed = frame >= 100 && frame <= 115;
+  const buttonScale = buttonPressed ? 0.95 : 1;
 
-  // Auto-approval badge animation
-  const autoApprovalOpacity = interpolate(frame, [140, 160], [0, 1], { extrapolateRight: 'clamp' });
-  const autoApprovalScale = spring({ frame: frame - 140, fps, from: 0.5, to: 1, durationInFrames: 20 });
+  const approveOpacity = interpolate(frame, [120, 145], [0, 1], { extrapolateRight: 'clamp' });
+  const auditOpacity = interpolate(frame, [150, 170], [0, 1], { extrapolateRight: 'clamp' });
+  const rbacOpacity = interpolate(frame, [175, 190], [0, 1], { extrapolateRight: 'clamp' });
 
   return (
     <AbsoluteFill
       style={{
         background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-        padding: 60,
+        padding: 50,
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
       {/* Header */}
-      <div style={{ opacity: headerOpacity, marginBottom: 60 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 48 }}>⚡</span>
-          <h2 style={{ fontSize: 42, color: 'white', margin: 0, fontWeight: 700 }}>
-            Agentic Workflow Orchestration
-          </h2>
-        </div>
-        <p style={{ fontSize: 24, color: '#94a3b8', marginTop: 12 }}>
-          4-stage automated pipeline with human-in-the-loop governance
+      <div style={{ opacity: headerOpacity, marginBottom: 12 }}>
+        <h2 style={{ fontSize: 32, color: 'white', margin: 0, fontWeight: 700 }}>
+          Human-in-the-Loop
+        </h2>
+      </div>
+      <div style={{ opacity: taglineOpacity, marginBottom: 28 }}>
+        <p style={{ fontSize: 18, color: '#94a3b8', margin: 0 }}>
+          Every override logged. Role-gated approvals.
         </p>
       </div>
 
-      {/* Workflow Pipeline */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          position: 'relative',
-          padding: '0 40px',
-        }}
-      >
-        {/* Progress Line Background */}
+      <div style={{ display: 'flex', gap: 32 }}>
+        {/* Left - Approval Queue */}
         <div
           style={{
-            position: 'absolute',
-            top: '50%',
-            left: 100,
-            right: 100,
-            height: 4,
-            backgroundColor: 'rgba(148, 163, 184, 0.2)',
-            transform: 'translateY(-50%)',
-            borderRadius: 2,
-          }}
-        />
-        
-        {/* Progress Line Animated */}
-        <div
-          style={{
-            position: 'absolute',
-            top: '50%',
-            left: 100,
-            width: `${progressWidth}%`,
-            height: 4,
-            backgroundColor: '#22c55e',
-            transform: 'translateY(-50%)',
-            borderRadius: 2,
-            boxShadow: '0 0 10px rgba(34, 197, 94, 0.5)',
-          }}
-        />
-
-        {/* Stage Cards */}
-        {stages.map((stage, index) => {
-          const { opacity, scale } = getStageAnimation(index);
-          return (
-            <div
-              key={stage.name}
-              style={{
-                display: 'flex',
-                flexDirection: 'column',
-                alignItems: 'center',
-                opacity,
-                transform: `scale(${scale})`,
-                zIndex: 1,
-              }}
-            >
-              {/* Icon Circle */}
-              <div
-                style={{
-                  width: 100,
-                  height: 100,
-                  borderRadius: '50%',
-                  backgroundColor: stage.status === 'pending' ? 'rgba(100, 116, 139, 0.2)' : `${stage.color}20`,
-                  border: `3px solid ${stage.color}`,
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  fontSize: 40,
-                  boxShadow: stage.status === 'active' ? `0 0 20px ${stage.color}50` : 'none',
-                }}
-              >
-                {stage.status === 'complete' ? '✓' : stage.icon}
-              </div>
-              
-              {/* Label */}
-              <span
-                style={{
-                  marginTop: 16,
-                  fontSize: 20,
-                  fontWeight: 600,
-                  color: stage.status === 'pending' ? '#64748b' : '#f1f5f9',
-                }}
-              >
-                {stage.name}
-              </span>
-              
-              {/* Status Badge */}
-              <span
-                style={{
-                  marginTop: 8,
-                  padding: '4px 12px',
-                  borderRadius: 12,
-                  fontSize: 12,
-                  fontWeight: 600,
-                  backgroundColor: `${stage.color}20`,
-                  color: stage.color,
-                  textTransform: 'uppercase',
-                }}
-              >
-                {stage.status}
-              </span>
-            </div>
-          );
-        })}
-      </div>
-
-      {/* Auto-Approval Info Box */}
-      <div
-        style={{
-          marginTop: 60,
-          opacity: autoApprovalOpacity,
-          transform: `scale(${autoApprovalScale})`,
-        }}
-      >
-        <div
-          style={{
-            backgroundColor: 'rgba(34, 197, 94, 0.1)',
-            border: '2px solid rgba(34, 197, 94, 0.3)',
-            borderRadius: 16,
-            padding: 24,
-            display: 'flex',
-            alignItems: 'center',
-            gap: 20,
+            flex: 1,
+            opacity: queueOpacity,
+            transform: `translateX(${queueX}px)`,
           }}
         >
           <div
             style={{
-              width: 60,
-              height: 60,
-              borderRadius: '50%',
-              backgroundColor: 'rgba(34, 197, 94, 0.2)',
-              display: 'flex',
-              justifyContent: 'center',
-              alignItems: 'center',
-              fontSize: 28,
+              backgroundColor: 'rgba(30, 41, 59, 0.8)',
+              borderRadius: 16,
+              padding: 24,
+              border: '1px solid rgba(148, 163, 184, 0.2)',
             }}
           >
-            🚀
+            <h3 style={{ color: '#f1f5f9', fontSize: 18, marginBottom: 20 }}>
+              Approval Queue
+            </h3>
+
+            {/* Flagged transaction */}
+            <div
+              style={{
+                padding: 18,
+                backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                borderRadius: 12,
+                border: '1px solid rgba(234, 179, 8, 0.4)',
+                marginBottom: 16,
+              }}
+            >
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                <span style={{ color: '#f1f5f9', fontSize: 14, fontWeight: 600 }}>
+                  txn_suspicious_001 — $50,000 Wire
+                </span>
+                <span
+                  style={{
+                    padding: '4px 10px',
+                    backgroundColor: 'rgba(234, 179, 8, 0.2)',
+                    color: '#eab308',
+                    fontSize: 11,
+                    fontWeight: 600,
+                    borderRadius: 6,
+                  }}
+                >
+                  MANUAL REVIEW
+                </span>
+              </div>
+              <p style={{ color: '#94a3b8', fontSize: 12, margin: 0, lineHeight: 1.5 }}>
+                SHAP: amount (+0.32), off_hours (+0.28). Agent: high anomaly, recommend review.
+              </p>
+            </div>
+
+            {/* Approve button */}
+            <div
+              style={{
+                display: 'flex',
+                gap: 12,
+              }}
+            >
+              <div
+                style={{
+                  flex: 1,
+                  padding: '14px 20px',
+                  backgroundColor: buttonPressed ? '#15803d' : '#22c55e',
+                  borderRadius: 10,
+                  color: 'white',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  textAlign: 'center',
+                  transform: `scale(${buttonScale})`,
+                }}
+              >
+                Approve
+              </div>
+              <div
+                style={{
+                  flex: 1,
+                  padding: '14px 20px',
+                  backgroundColor: 'rgba(239, 68, 68, 0.2)',
+                  border: '1px solid rgba(239, 68, 68, 0.5)',
+                  borderRadius: 10,
+                  color: '#f87171',
+                  fontSize: 16,
+                  fontWeight: 600,
+                  textAlign: 'center',
+                }}
+              >
+                Override
+              </div>
+            </div>
           </div>
-          <div>
-            <h4 style={{ color: '#22c55e', fontSize: 22, margin: 0, fontWeight: 600 }}>
-              Auto-Approval Enabled
-            </h4>
-            <p style={{ color: '#86efac', fontSize: 16, margin: '8px 0 0' }}>
-              Low-risk decisions (confidence ≥95%) advance automatically. High-risk actions require human approval.
+        </div>
+
+        {/* Right - Audit Log */}
+        <div style={{ flex: 1 }}>
+          <div
+            style={{
+              opacity: auditOpacity,
+              backgroundColor: 'rgba(30, 41, 59, 0.8)',
+              borderRadius: 16,
+              padding: 24,
+              border: '1px solid rgba(148, 163, 184, 0.2)',
+              marginBottom: 20,
+            }}
+          >
+            <h3 style={{ color: '#f1f5f9', fontSize: 18, marginBottom: 16 }}>
+              Audit Log
+            </h3>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+              <div
+                style={{
+                  padding: 12,
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  borderRadius: 8,
+                  borderLeft: '3px solid #3b82f6',
+                }}
+              >
+                <span style={{ color: '#64748b', fontSize: 11 }}>10:30:01 — </span>
+                <span style={{ color: '#f1f5f9', fontSize: 13 }}>Agent flagged: anomaly_score=0.847</span>
+              </div>
+              <div
+                style={{
+                  padding: 12,
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  borderRadius: 8,
+                  borderLeft: '3px solid #22c55e',
+                }}
+              >
+                <span style={{ color: '#64748b', fontSize: 11 }}>10:31:45 — </span>
+                <span style={{ color: '#f1f5f9', fontSize: 13 }}>Compliance officer approved</span>
+              </div>
+              <div
+                style={{
+                  padding: 12,
+                  backgroundColor: 'rgba(15, 23, 42, 0.6)',
+                  borderRadius: 8,
+                  borderLeft: '3px solid #94a3b8',
+                }}
+              >
+                <span style={{ color: '#64748b', fontSize: 11 }}>10:31:45 — </span>
+                <span style={{ color: '#f1f5f9', fontSize: 13 }}>Audit trail updated (SEC_17a4)</span>
+              </div>
+            </div>
+          </div>
+
+          {/* RBAC badge */}
+          <div
+            style={{
+              opacity: rbacOpacity,
+              padding: 16,
+              backgroundColor: 'rgba(59, 130, 246, 0.1)',
+              borderRadius: 12,
+              border: '1px solid rgba(59, 130, 246, 0.3)',
+            }}
+          >
+            <p style={{ color: '#60a5fa', fontSize: 14, margin: 0, fontWeight: 600 }}>
+              Role-gated: 4 roles, 25 permissions
+            </p>
+            <p style={{ color: '#94a3b8', fontSize: 12, margin: '6px 0 0' }}>
+              admin • compliance • analyst • viewer
             </p>
           </div>
         </div>

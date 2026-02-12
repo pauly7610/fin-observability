@@ -115,8 +115,8 @@ importers:
         specifier: ^4.0.419
         version: 4.0.419(react-dom@19.2.4(react@19.2.4))(react@19.2.4)
       zod:
-        specifier: ^3.25.64
-        version: 3.25.76
+        specifier: 3.22.3
+        version: 3.22.3
       zustand:
         specifier: ^4.5.0
         version: 4.5.7(@types/react@19.2.13)(react@19.2.4)
@@ -5886,9 +5886,6 @@ packages:
 
   zod@3.22.3:
     resolution: {integrity: sha512-EjIevzuJRiRPbVH4mGc8nApb/lVLKVpmUhAaR5R5doKGfAnGJ6Gr3CViAVjP+4FWSxCsybeWQdcgCtbX+7oZug==}
-
-  zod@3.25.76:
-    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
 
   zustand@4.5.7:
     resolution: {integrity: sha512-CHOUy7mu3lbD6o6LJLfllpjkzhHXSBlX8B9+qPddUsIfeF5S/UZ5q0kmCsnRqT1UHFQZchNFDDzMbQsuesHWlw==}
@@ -12278,8 +12275,6 @@ snapshots:
   yocto-queue@0.1.0: {}
 
   zod@3.22.3: {}
-
-  zod@3.25.76: {}
 
   zustand@4.5.7(@types/react@19.2.13)(react@19.2.4):
     dependencies:

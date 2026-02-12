@@ -1,17 +1,28 @@
 import { AbsoluteFill, useCurrentFrame, interpolate, spring, useVideoConfig } from 'remotion';
 
+const links = [
+  { icon: '🌐', label: 'Live App', url: 'fin-observability-production.up.railway.app' },
+  { icon: '📊', label: 'Grafana', url: 'pauly7610.grafana.net' },
+  { icon: '🔌', label: 'MCP Server', url: '/mcp' },
+];
+
 export const OutroScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const logoOpacity = interpolate(frame, [0, 30], [0, 1], { extrapolateRight: 'clamp' });
-  const logoScale = spring({ frame, fps, from: 0.8, to: 1, durationInFrames: 30 });
+  const titleOpacity = interpolate(frame, [0, 25], [0, 1], { extrapolateRight: 'clamp' });
+  const titleY = spring({ frame, fps, from: -20, to: 0, durationInFrames: 25 });
 
-  const textOpacity = interpolate(frame, [30, 50], [0, 1], { extrapolateRight: 'clamp' });
-  const textY = spring({ frame: frame - 30, fps, from: 20, to: 0, durationInFrames: 20 });
+  const taglineOpacity = interpolate(frame, [25, 45], [0, 1], { extrapolateRight: 'clamp' });
 
-  const ctaOpacity = interpolate(frame, [60, 80], [0, 1], { extrapolateRight: 'clamp' });
-  const ctaScale = spring({ frame: frame - 60, fps, from: 0.9, to: 1, durationInFrames: 20 });
+  const getLinkAnimation = (index: number) => {
+    const startFrame = 50 + index * 18;
+    const opacity = interpolate(frame, [startFrame, startFrame + 15], [0, 1], { extrapolateRight: 'clamp' });
+    const scale = spring({ frame: frame - startFrame, fps, from: 0.9, to: 1, durationInFrames: 15 });
+    return { opacity, scale };
+  };
+
+  const badgeOpacity = interpolate(frame, [110, 130], [0, 1], { extrapolateRight: 'clamp' });
 
   return (
     <AbsoluteFill
@@ -34,26 +45,15 @@ export const OutroScene: React.FC = () => {
         }}
       />
 
-      {/* Logo */}
-      <div
-        style={{
-          opacity: logoOpacity,
-          transform: `scale(${logoScale})`,
-          marginBottom: 24,
-        }}
-      >
-        <span style={{ fontSize: 100 }}>🤖</span>
-      </div>
-
       {/* Title */}
       <h1
         style={{
-          fontSize: 56,
+          fontSize: 48,
           fontWeight: 800,
           color: 'white',
           margin: 0,
-          opacity: textOpacity,
-          transform: `translateY(${textY}px)`,
+          opacity: titleOpacity,
+          transform: `translateY(${titleY}px)`,
           textAlign: 'center',
         }}
       >
@@ -63,70 +63,74 @@ export const OutroScene: React.FC = () => {
       {/* Tagline */}
       <p
         style={{
-          fontSize: 28,
+          fontSize: 24,
           color: '#94a3b8',
-          margin: '16px 0 40px',
-          opacity: textOpacity,
-          transform: `translateY(${textY}px)`,
+          margin: '16px 0 36px',
+          opacity: taglineOpacity,
           textAlign: 'center',
         }}
       >
-        Autonomous. Compliant. Auditable.
+        Production. Open Source. MCP-ready.
       </p>
 
-      {/* Feature Pills */}
+      {/* Links */}
       <div
         style={{
           display: 'flex',
-          gap: 16,
-          opacity: ctaOpacity,
-          transform: `scale(${ctaScale})`,
-          marginBottom: 40,
+          flexDirection: 'column',
+          gap: 14,
+          marginBottom: 36,
+          alignItems: 'center',
         }}
       >
-        {[
-          { icon: '🔍', text: 'Anomaly Detection' },
-          { icon: '📊', text: 'SHAP Explainability' },
-          { icon: '⚡', text: 'ONNX Inference' },
-          { icon: '🔄', text: 'Auto-Retraining' },
-          { icon: '📡', text: 'OTel Observability' },
-          { icon: '🚀', text: 'Railway Deploy' },
-        ].map((feature) => (
-          <div
-            key={feature.text}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              padding: '12px 20px',
-              backgroundColor: 'rgba(59, 130, 246, 0.1)',
-              border: '1px solid rgba(59, 130, 246, 0.3)',
-              borderRadius: 24,
-            }}
-          >
-            <span style={{ fontSize: 20 }}>{feature.icon}</span>
-            <span style={{ color: '#93c5fd', fontSize: 16, fontWeight: 500 }}>{feature.text}</span>
-          </div>
-        ))}
+        {links.map((link, index) => {
+          const { opacity, scale } = getLinkAnimation(index);
+          return (
+            <div
+              key={link.url}
+              style={{
+                opacity,
+                transform: `scale(${scale})`,
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '14px 28px',
+                backgroundColor: 'rgba(30, 41, 59, 0.8)',
+                borderRadius: 12,
+                border: '1px solid rgba(148, 163, 184, 0.2)',
+                minWidth: 400,
+              }}
+            >
+              <span style={{ fontSize: 24 }}>{link.icon}</span>
+              <span style={{ color: '#94a3b8', fontSize: 14, width: 90 }}>{link.label}</span>
+              <span style={{ color: '#60a5fa', fontSize: 14, fontFamily: 'monospace' }}>
+                {link.url}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* CTA */}
+      {/* GitHub badge */}
       <div
         style={{
-          opacity: ctaOpacity,
-          transform: `scale(${ctaScale})`,
+          opacity: badgeOpacity,
+          display: 'flex',
+          gap: 16,
+          alignItems: 'center',
         }}
       >
         <div
           style={{
-            padding: '16px 48px',
-            background: 'linear-gradient(135deg, #3b82f6 0%, #8b5cf6 100%)',
-            borderRadius: 12,
-            boxShadow: '0 4px 20px rgba(59, 130, 246, 0.4)',
+            padding: '10px 20px',
+            backgroundColor: 'rgba(30, 41, 59, 0.9)',
+            borderRadius: 8,
+            border: '1px solid rgba(148, 163, 184, 0.2)',
           }}
         >
-          <span style={{ color: 'white', fontSize: 24, fontWeight: 600 }}>
-            Get Started Today →
+          <span style={{ color: '#94a3b8', fontSize: 14 }}>GitHub</span>
+          <span style={{ color: '#f1f5f9', fontSize: 14, fontWeight: 600, marginLeft: 8 }}>
+            pauly7610/fin-observability
           </span>
         </div>
       </div>

@@ -1,259 +1,192 @@
 import { AbsoluteFill, useCurrentFrame, interpolate, spring, useVideoConfig } from 'remotion';
 
-const datasetStats = [
-  { label: 'Transactions', value: '10,000' },
-  { label: 'Accounts', value: '200 profiles' },
-  { label: 'Jurisdictions', value: '20 countries' },
-  { label: 'Time Span', value: '14 months' },
+const driftChartData = [
+  { day: 'Mon', psi: 0.12 },
+  { day: 'Tue', psi: 0.18 },
+  { day: 'Wed', psi: 0.25 },
+  { day: 'Thu', psi: 0.32 },
+  { day: 'Fri', psi: 0.41 },
+  { day: 'Sat', psi: 0.52 },
+  { day: 'Sun', psi: 0.58 },
 ];
 
-const pipelineSteps = [
-  { icon: '📂', label: 'Load Dataset', detail: '10K transactions CSV' },
-  { icon: '🧠', label: 'Retrain Model', detail: 'Isolation Forest + PCA' },
-  { icon: '📦', label: 'Export ONNX', detail: '~2x faster inference' },
-  { icon: '✅', label: 'Auto-Version', detail: 'v2.0.0 → v2.0.1' },
-];
+const THRESHOLD = 0.35;
 
 export const AutoRetrainingScene: React.FC = () => {
   const frame = useCurrentFrame();
   const { fps } = useVideoConfig();
 
-  const headerOpacity = interpolate(frame, [0, 20], [0, 1], { extrapolateRight: 'clamp' });
+  const headerOpacity = interpolate(frame, [0, 25], [0, 1], { extrapolateRight: 'clamp' });
+  const taglineOpacity = interpolate(frame, [20, 45], [0, 1], { extrapolateRight: 'clamp' });
 
-  // Dataset stats stagger
-  const getStatAnimation = (index: number) => {
-    const startFrame = 25 + index * 12;
-    const opacity = interpolate(frame, [startFrame, startFrame + 12], [0, 1], { extrapolateRight: 'clamp' });
-    const y = spring({ frame: frame - startFrame, fps, from: 20, to: 0, durationInFrames: 15 });
-    return { opacity, y };
+  const chartOpacity = interpolate(frame, [55, 80], [0, 1], { extrapolateRight: 'clamp' });
+  const getBarWidth = (index: number) => {
+    const startFrame = 75 + index * 8;
+    return interpolate(frame, [startFrame, startFrame + 15], [0, 1], { extrapolateRight: 'clamp' });
   };
 
-  // Pipeline steps stagger
-  const getStepAnimation = (index: number) => {
-    const startFrame = 80 + index * 22;
-    const opacity = interpolate(frame, [startFrame, startFrame + 15], [0, 1], { extrapolateRight: 'clamp' });
-    const x = spring({ frame: frame - startFrame, fps, from: -40, to: 0, durationInFrames: 20 });
-    // Checkmark appears after the step fades in
-    const checkOpacity = interpolate(frame, [startFrame + 18, startFrame + 25], [0, 1], { extrapolateRight: 'clamp' });
-    return { opacity, x, checkOpacity };
-  };
+  const alertOpacity = interpolate(frame, [140, 165], [0, 1], { extrapolateRight: 'clamp' });
+  const alertScale = spring({ frame: frame - 140, fps, from: 0.9, to: 1, durationInFrames: 20 });
 
-  // Schedule badge
-  const scheduleOpacity = interpolate(frame, [180, 200], [0, 1], { extrapolateRight: 'clamp' });
-  const scheduleScale = spring({ frame: frame - 180, fps, from: 0.8, to: 1, durationInFrames: 20 });
-
-  // ONNX badge pulse
-  const onnxGlow = interpolate(frame % 50, [0, 25, 50], [0.3, 0.7, 0.3], { extrapolateRight: 'clamp' });
+  const f1OldOpacity = interpolate(frame, [180, 200], [0, 1], { extrapolateRight: 'clamp' });
+  const f1NewOpacity = interpolate(frame, [210, 230], [0, 1], { extrapolateRight: 'clamp' });
+  const abTestOpacity = interpolate(frame, [240, 260], [0, 1], { extrapolateRight: 'clamp' });
+  const promotedOpacity = interpolate(frame, [265, 285], [0, 1], { extrapolateRight: 'clamp' });
 
   return (
     <AbsoluteFill
       style={{
         background: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-        padding: 60,
+        padding: 50,
         fontFamily: 'system-ui, -apple-system, sans-serif',
       }}
     >
       {/* Header */}
-      <div style={{ opacity: headerOpacity, marginBottom: 40 }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16 }}>
-          <span style={{ fontSize: 48 }}>🔄</span>
-          <h2 style={{ fontSize: 42, color: 'white', margin: 0, fontWeight: 700 }}>
-            Auto-Retraining Pipeline
-          </h2>
-        </div>
-        <p style={{ fontSize: 24, color: '#94a3b8', marginTop: 12 }}>
-          Enhanced dataset + ONNX Runtime + scheduled retraining
+      <div style={{ opacity: headerOpacity, marginBottom: 12 }}>
+        <h2 style={{ fontSize: 32, color: 'white', margin: 0, fontWeight: 700 }}>
+          Self-Healing ML
+        </h2>
+      </div>
+      <div style={{ opacity: taglineOpacity, marginBottom: 28 }}>
+        <p style={{ fontSize: 18, color: '#94a3b8', margin: 0 }}>
+          Detects drift, retrains, A/B tests, auto-promotes
         </p>
       </div>
 
-      <div style={{ display: 'flex', gap: 40 }}>
-        {/* Left: Dataset + Pipeline */}
+      <div style={{ display: 'flex', gap: 32 }}>
+        {/* Left - Drift Chart + Alert */}
         <div style={{ flex: 1.2 }}>
-          {/* Dataset Stats */}
           <div
             style={{
+              opacity: chartOpacity,
               backgroundColor: 'rgba(30, 41, 59, 0.8)',
               borderRadius: 16,
-              padding: 28,
+              padding: 24,
               border: '1px solid rgba(148, 163, 184, 0.2)',
-              marginBottom: 24,
+              marginBottom: 20,
             }}
           >
-            <h3 style={{ color: '#f1f5f9', fontSize: 20, marginBottom: 20 }}>
-              📊 Enhanced Dataset
+            <h3 style={{ color: '#f1f5f9', fontSize: 18, marginBottom: 20 }}>
+              PSI — Population Stability Index
             </h3>
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              {datasetStats.map((stat, index) => {
-                const { opacity, y } = getStatAnimation(index);
-                return (
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: 12, height: 100 }}>
+              {driftChartData.map((d, i) => (
+                <div key={d.day} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
                   <div
-                    key={stat.label}
                     style={{
-                      opacity,
-                      transform: `translateY(${y}px)`,
-                      padding: 16,
-                      backgroundColor: 'rgba(59, 130, 246, 0.08)',
-                      borderRadius: 10,
-                      border: '1px solid rgba(59, 130, 246, 0.2)',
-                      textAlign: 'center',
+                      width: '100%',
+                      height: `${(d.psi / 0.7) * 80}px`,
+                      backgroundColor: d.psi > THRESHOLD ? '#ef4444' : '#3b82f6',
+                      borderRadius: '4px 4px 0 0',
+                      transform: `scaleY(${getBarWidth(i)})`,
+                      transformOrigin: 'bottom',
                     }}
-                  >
-                    <div style={{ color: '#60a5fa', fontSize: 26, fontWeight: 700 }}>{stat.value}</div>
-                    <div style={{ color: '#94a3b8', fontSize: 13, marginTop: 4 }}>{stat.label}</div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-
-          {/* Pipeline Steps */}
-          <div
-            style={{
-              backgroundColor: 'rgba(30, 41, 59, 0.8)',
-              borderRadius: 16,
-              padding: 28,
-              border: '1px solid rgba(148, 163, 184, 0.2)',
-            }}
-          >
-            <h3 style={{ color: '#f1f5f9', fontSize: 20, marginBottom: 20 }}>
-              ⚙️ Retraining Pipeline
-            </h3>
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {pipelineSteps.map((step, index) => {
-                const { opacity, x, checkOpacity } = getStepAnimation(index);
-                return (
-                  <div
-                    key={step.label}
-                    style={{
-                      opacity,
-                      transform: `translateX(${x}px)`,
-                      display: 'flex',
-                      alignItems: 'center',
-                      gap: 16,
-                      padding: '14px 18px',
-                      backgroundColor: 'rgba(15, 23, 42, 0.5)',
-                      borderRadius: 10,
-                      border: '1px solid rgba(148, 163, 184, 0.15)',
-                    }}
-                  >
-                    <span style={{ fontSize: 26, width: 36, textAlign: 'center' }}>{step.icon}</span>
-                    <div style={{ flex: 1 }}>
-                      <div style={{ color: '#f1f5f9', fontSize: 16, fontWeight: 600 }}>{step.label}</div>
-                      <div style={{ color: '#64748b', fontSize: 13 }}>{step.detail}</div>
-                    </div>
-                    <div
-                      style={{
-                        opacity: checkOpacity,
-                        width: 28,
-                        height: 28,
-                        borderRadius: '50%',
-                        backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                        border: '2px solid #22c55e',
-                        display: 'flex',
-                        justifyContent: 'center',
-                        alignItems: 'center',
-                        color: '#22c55e',
-                        fontSize: 14,
-                        fontWeight: 700,
-                      }}
-                    >
-                      ✓
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-
-        {/* Right: ONNX + Schedule */}
-        <div style={{ flex: 0.8 }}>
-          {/* ONNX Runtime Card */}
-          <div
-            style={{
-              backgroundColor: 'rgba(30, 41, 59, 0.8)',
-              borderRadius: 16,
-              padding: 28,
-              border: '1px solid rgba(139, 92, 246, 0.3)',
-              marginBottom: 24,
-              boxShadow: `0 0 20px rgba(139, 92, 246, ${onnxGlow * 0.3})`,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 20 }}>
-              <div
-                style={{
-                  padding: '6px 14px',
-                  backgroundColor: 'rgba(139, 92, 246, 0.2)',
-                  borderRadius: 6,
-                  border: '1px solid rgba(139, 92, 246, 0.5)',
-                }}
-              >
-                <span style={{ color: '#a78bfa', fontSize: 14, fontWeight: 700 }}>ONNX Runtime</span>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', flexDirection: 'column', gap: 14 }}>
-              {[
-                { label: 'Architecture', value: '2-Layer PCA' },
-                { label: 'Layer 1', value: '20 → 12 components' },
-                { label: 'Layer 2', value: '12 → 6 bottleneck' },
-                { label: 'Inference', value: '~2x faster' },
-                { label: 'Fallback', value: 'NumPy (graceful)' },
-              ].map((item) => (
-                <div key={item.label} style={{ display: 'flex', justifyContent: 'space-between' }}>
-                  <span style={{ color: '#94a3b8', fontSize: 14 }}>{item.label}</span>
-                  <span style={{ color: '#f1f5f9', fontSize: 14, fontWeight: 500 }}>{item.value}</span>
+                  />
+                  <span style={{ color: '#94a3b8', fontSize: 11, marginTop: 8 }}>{d.day}</span>
                 </div>
               ))}
             </div>
-          </div>
-
-          {/* Schedule Card */}
-          <div
-            style={{
-              opacity: scheduleOpacity,
-              transform: `scale(${scheduleScale})`,
-              backgroundColor: 'rgba(34, 197, 94, 0.08)',
-              borderRadius: 16,
-              padding: 24,
-              border: '2px solid rgba(34, 197, 94, 0.3)',
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 16 }}>
-              <div
-                style={{
-                  width: 44,
-                  height: 44,
-                  borderRadius: '50%',
-                  backgroundColor: 'rgba(34, 197, 94, 0.2)',
-                  display: 'flex',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  fontSize: 22,
-                }}
-              >
-                ⏰
-              </div>
-              <div>
-                <h4 style={{ color: '#22c55e', fontSize: 18, margin: 0, fontWeight: 600 }}>
-                  Weekly Schedule
-                </h4>
-                <p style={{ color: '#86efac', fontSize: 13, margin: '4px 0 0' }}>
-                  APScheduler • Configurable via env
-                </p>
-              </div>
-            </div>
             <div
               style={{
-                padding: 12,
-                backgroundColor: 'rgba(15, 23, 42, 0.6)',
-                borderRadius: 8,
-                fontFamily: 'monospace',
+                position: 'relative',
+                height: 2,
+                backgroundColor: '#eab308',
+                marginTop: 8,
+                marginLeft: '14%',
+                width: '72%',
               }}
             >
-              <span style={{ color: '#64748b', fontSize: 12 }}>RETRAIN_SCHEDULE_HOURS=</span>
-              <span style={{ color: '#22c55e', fontSize: 12, fontWeight: 600 }}>168</span>
+              <span style={{ position: 'absolute', right: -40, top: -22, color: '#eab308', fontSize: 11 }}>
+                threshold 0.35
+              </span>
             </div>
+          </div>
+
+          {/* Drift Alert */}
+          <div
+            style={{
+              opacity: alertOpacity,
+              transform: `scale(${alertScale})`,
+              padding: 20,
+              backgroundColor: 'rgba(239, 68, 68, 0.15)',
+              borderRadius: 12,
+              border: '2px solid rgba(239, 68, 68, 0.5)',
+            }}
+          >
+            <p style={{ color: '#fca5a5', fontSize: 16, margin: 0, fontWeight: 700 }}>
+              Drift detected — triggering retrain
+            </p>
+            <p style={{ color: '#94a3b8', fontSize: 13, margin: '8px 0 0' }}>
+              PSI exceeded threshold. Retraining pipeline started.
+            </p>
+          </div>
+        </div>
+
+        {/* Right - F1 + A/B Test */}
+        <div style={{ flex: 0.9 }}>
+          <div
+            style={{
+              opacity: f1OldOpacity,
+              backgroundColor: 'rgba(30, 41, 59, 0.8)',
+              borderRadius: 12,
+              padding: 20,
+              border: '1px solid rgba(148, 163, 184, 0.2)',
+              marginBottom: 16,
+            }}
+          >
+            <p style={{ color: '#94a3b8', fontSize: 12, marginBottom: 8 }}>Old Model</p>
+            <p style={{ color: '#f1f5f9', fontSize: 28, margin: 0, fontWeight: 700 }}>
+              F1: 0.87
+            </p>
+          </div>
+
+          <div
+            style={{
+              opacity: f1NewOpacity,
+              backgroundColor: 'rgba(34, 197, 94, 0.1)',
+              borderRadius: 12,
+              padding: 20,
+              border: '1px solid rgba(34, 197, 94, 0.4)',
+              marginBottom: 16,
+            }}
+          >
+            <p style={{ color: '#86efac', fontSize: 12, marginBottom: 8 }}>New Model (retrained)</p>
+            <p style={{ color: '#22c55e', fontSize: 28, margin: 0, fontWeight: 700 }}>
+              F1: 0.91
+            </p>
+          </div>
+
+          <div
+            style={{
+              opacity: abTestOpacity,
+              backgroundColor: 'rgba(30, 41, 59, 0.8)',
+              borderRadius: 12,
+              padding: 20,
+              border: '1px solid rgba(148, 163, 184, 0.2)',
+              marginBottom: 16,
+            }}
+          >
+            <p style={{ color: '#94a3b8', fontSize: 12, marginBottom: 8 }}>A/B Test</p>
+            <p style={{ color: '#f1f5f9', fontSize: 14, margin: 0 }}>
+              p &lt; 0.05 — new model significant
+            </p>
+          </div>
+
+          <div
+            style={{
+              opacity: promotedOpacity,
+              padding: 18,
+              backgroundColor: 'rgba(34, 197, 94, 0.15)',
+              borderRadius: 12,
+              border: '2px solid rgba(34, 197, 94, 0.5)',
+            }}
+          >
+            <p style={{ color: '#22c55e', fontSize: 18, margin: 0, fontWeight: 700 }}>
+              PROMOTED
+            </p>
+            <p style={{ color: '#86efac', fontSize: 12, margin: '6px 0 0' }}>
+              v2.0.1 now live
+            </p>
           </div>
         </div>
       </div>
