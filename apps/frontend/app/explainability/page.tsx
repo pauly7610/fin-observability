@@ -206,12 +206,14 @@ export default function ExplainabilityPage() {
     : 1
 
   return (
-    <div className="container mx-auto p-6 space-y-6">
-      <h1 className="text-3xl font-bold">Model Explainability (SHAP)</h1>
-      <p className="text-muted-foreground">
-        Understand why the model made a specific compliance decision. SHAP values show each
-        feature&apos;s contribution to the anomaly score.
-      </p>
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-2xl font-bold tracking-tight">Model Explainability</h1>
+        <p className="text-sm text-muted-foreground">
+          Understand why the model made a specific compliance decision. SHAP values show each
+          feature&apos;s contribution to the anomaly score.
+        </p>
+      </div>
 
       {/* Input Form */}
       <Card>
@@ -226,7 +228,7 @@ export default function ExplainabilityPage() {
                 type="number"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
+                className="w-full h-9 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
             <div>
@@ -234,7 +236,7 @@ export default function ExplainabilityPage() {
               <select
                 value={type}
                 onChange={(e) => setType(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
+                className="w-full h-9 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="ach">ACH</option>
                 <option value="wire">Wire</option>
@@ -247,18 +249,24 @@ export default function ExplainabilityPage() {
                 type="datetime-local"
                 value={timestamp}
                 onChange={(e) => setTimestamp(e.target.value)}
-                className="w-full px-3 py-2 border rounded-md bg-background"
+                className="w-full h-9 px-3 py-2 border border-border rounded-md bg-background text-sm focus:outline-none focus:ring-2 focus:ring-ring"
               />
             </div>
           </div>
           <button
             onClick={handleExplain}
             disabled={loading}
-            className="mt-4 px-6 py-2 bg-primary text-primary-foreground rounded-md hover:opacity-90 disabled:opacity-50"
+            className="mt-4 inline-flex items-center justify-center h-9 px-6 rounded-md bg-primary text-primary-foreground text-sm font-medium hover:bg-primary/90 disabled:opacity-50 disabled:pointer-events-none transition-colors"
           >
             {loading ? 'Analyzing...' : 'Explain Decision'}
           </button>
-          {error && <p className="mt-2 text-red-500 text-sm">{error}</p>}
+          {error && (
+            <div className="mt-3 p-3 rounded-lg bg-red-500/5 border border-red-500/20 text-sm text-red-500">
+              {error.includes('fetch') || error.includes('Network')
+                ? 'Backend unavailable — make sure the API server is running.'
+                : error}
+            </div>
+          )}
         </CardContent>
       </Card>
 

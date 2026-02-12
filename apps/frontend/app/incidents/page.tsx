@@ -1,44 +1,43 @@
 'use client'
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs"
-import { MetricsOverview } from "@/components/MetricsOverview"
-import { AIAgentActivity } from "@/components/AIAgentActivity"
-import { AlertsPanel } from "@/components/AlertsPanel"
-import { ComplianceStatus } from "@/components/ComplianceStatus"
-import { SystemHealth } from "@/components/SystemHealth"
-import { AgentComplianceMonitor } from "@/components/AgentComplianceMonitor"
-import { useMockScenarios } from '@/hooks/useMockScenarios';
-import { useMockAuditTrail } from '@/hooks/useMockAuditTrail';
-import React from 'react';
 
-export default function DashboardPage() {
-  const { data: scenarios, isLoading: loadingScenarios } = useMockScenarios();
-  const { data: auditTrail, isLoading: loadingAudit } = useMockAuditTrail();
+import { useAlerts } from '@/hooks/useAlerts'
+import { IncidentTable } from '@/components/IncidentTable'
+import { TableSkeleton } from '@/components/CardSkeleton'
+import { ErrorState } from '@/components/ErrorState'
+import { AlertTriangle } from 'lucide-react'
+
+export default function IncidentsPage() {
+  const { data, isLoading, isError, error, bulkResolve } = useAlerts()
 
   return (
-    <Tabs defaultValue="overview" className="w-full">
-      <TabsList>
-        <TabsTrigger value="overview">Overview</TabsTrigger>
-        <TabsTrigger value="alerts">Alerts</TabsTrigger>
-        <TabsTrigger value="compliance">Compliance</TabsTrigger>
-        <TabsTrigger value="compliance-monitor">Compliance Monitor</TabsTrigger>
-        <TabsTrigger value="systems">Systems</TabsTrigger>
-      </TabsList>
-      <TabsContent value="overview">
-        <MetricsOverview />
-        <AIAgentActivity />
-      </TabsContent>
-      <TabsContent value="alerts">
-        <AlertsPanel />
-      </TabsContent>
-      <TabsContent value="compliance">
-        <ComplianceStatus />
-      </TabsContent>
-      <TabsContent value="systems">
-        <SystemHealth />
-      </TabsContent>
-      <TabsContent value="compliance-monitor">
-        <AgentComplianceMonitor />
-      </TabsContent>
-    </Tabs>
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
+            <AlertTriangle className="h-6 w-6 text-amber-500" />
+            Incidents
+          </h1>
+          <p className="text-sm text-muted-foreground">
+            Monitor, triage, and resolve incidents across your financial systems.
+          </p>
+        </div>
+        {data?.alerts && !isError && (
+          <div className="text-sm text-muted-foreground tabular-nums">
+            {data.alerts.length} total
+          </div>
+        )}
+      </div>
+
+      {isError ? (
+        <ErrorState message={error?.message} onRetry={() => window.location.reload()} />
+      ) : isLoading ? (
+        <TableSkeleton rows={8} />
+      ) : (
+        <IncidentTable
+          incidents={data?.alerts || []}
+          onBulkResolve={(ids) => bulkResolve.mutate(ids)}
+        />
+      )}
+    </div>
   )
 }

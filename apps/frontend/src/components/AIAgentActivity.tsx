@@ -1,127 +1,206 @@
 'use client'
-import { useState } from 'react'
-import { Card, CardHeader, CardContent, CardTitle } from "@/components/ui/card"
-import { useAIAgentActivity } from "@/hooks/useAIAgentActivity"
-import { useModelConfig } from "@/hooks/useModelManagement"
-import { AgentAction } from "@/types/api"
 
-function SourceBadge({ source, model }: { source?: string; model?: string | null }) {
-  if (source === 'llm') {
-    return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-300">
-        LLM {model && <span className="text-purple-600">({model})</span>}
-      </span>
-    )
-  }
-  return (
-    <span className="inline-flex items-center px-2 py-0.5 text-xs font-semibold rounded-full bg-gray-100 text-gray-600 border border-gray-300">
-      Heuristic
-    </span>
-  )
+import { useState } from 'react'
+import { Card, CardHeader, CardContent, CardTitle } from '@/components/ui/card'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { useAIAgentActivity } from '@/hooks/useAIAgentActivity'
+import { useModelConfig } from '@/hooks/useModelManagement'
+import { AgentAction } from '@/types/api'
+import { CardSkeleton } from '@/components/CardSkeleton'
+import { ErrorState } from '@/components/ErrorState'
+import { Bot, CheckCircle, XCircle, Clock, ChevronDown, ChevronUp, Cpu, Zap } from 'lucide-react'
+import { cn } from '@/lib/utils'
+
+const statusConfig: Record<string, { class: string; icon: React.ReactNode }> = {
+  pending: {
+    class: 'text-amber-500 border-amber-500/30 bg-amber-500/10',
+    icon: <Clock className="h-3 w-3" />,
+  },
+  approved: {
+    class: 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10',
+    icon: <CheckCircle className="h-3 w-3" />,
+  },
+  rejected: {
+    class: 'text-red-500 border-red-500/30 bg-red-500/10',
+    icon: <XCircle className="h-3 w-3" />,
+  },
+  executed: {
+    class: 'text-blue-500 border-blue-500/30 bg-blue-500/10',
+    icon: <Zap className="h-3 w-3" />,
+  },
 }
 
 export function AIAgentActivity() {
-  const { actions, isLoading, isError, error, triageIncident, approveAction, rejectAction } = useAIAgentActivity()
+  const { actions, isLoading, isError, error, approveAction, rejectAction } = useAIAgentActivity()
   const { config } = useModelConfig()
   const typedActions: AgentAction[] = actions
   const [expandedId, setExpandedId] = useState<number | null>(null)
 
-  if (isLoading) return <div>Loading...</div>
-  if (isError) return <div>Error loading data: {error?.message}</div>
+  if (isLoading) {
+    return (
+      <div className="space-y-4">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <CardSkeleton key={i} />
+        ))}
+      </div>
+    )
+  }
+
+  if (isError) {
+    return <ErrorState message={error?.message} onRetry={() => window.location.reload()} />
+  }
 
   return (
     <div className="space-y-4">
-      {/* Model Status Card */}
+      {/* Model Status */}
       {config && (
         <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              Model Status
-              <SourceBadge source={config.source} model={config.model} />
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
-              <div>
-                <span className="text-gray-500">Provider:</span>{' '}
-                <span className="font-medium capitalize">{config.provider || 'none'}</span>
+          <CardContent className="p-4">
+            <div className="flex items-center gap-4 flex-wrap">
+              <div className="flex items-center gap-2">
+                <Cpu className="h-4 w-4 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Mode:</span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs',
+                    config.source === 'llm'
+                      ? 'text-purple-500 border-purple-500/30 bg-purple-500/10'
+                      : 'text-muted-foreground'
+                  )}
+                >
+                  {config.source === 'llm' ? `LLM (${config.model})` : 'Heuristic'}
+                </Badge>
               </div>
-              <div>
-                <span className="text-gray-500">Model:</span>{' '}
-                <span className="font-medium">{config.model || 'heuristic'}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Provider:</span>
+                <span className="text-sm font-medium capitalize">{config.provider || 'none'}</span>
               </div>
-              <div>
-                <span className="text-gray-500">Mode:</span>{' '}
-                <span className="font-medium">{config.source}</span>
-              </div>
-              <div>
-                <span className="text-gray-500">Fallback:</span>{' '}
-                <span className="font-medium">{config.fallback_active ? 'Active' : 'Inactive'}</span>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-muted-foreground">Fallback:</span>
+                <Badge
+                  variant="outline"
+                  className={cn(
+                    'text-xs',
+                    config.fallback_active
+                      ? 'text-amber-500 border-amber-500/30 bg-amber-500/10'
+                      : 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10'
+                  )}
+                >
+                  {config.fallback_active ? 'Active' : 'Inactive'}
+                </Badge>
               </div>
             </div>
           </CardContent>
         </Card>
       )}
 
-      <Card>
-        <CardHeader>
-          <CardTitle>Agent Actions</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {typedActions.length === 0 ? (
-            <div>No agent actions available.</div>
-          ) : (
-            <ul>
-              {typedActions.map(action => (
-                <li key={action.id} className="mb-4 border-b pb-2">
-                  <div className="flex items-center gap-2 mb-1">
-                    <b>Type:</b> {action.action}
-                    <SourceBadge source={action.source} model={action.model} />
-                  </div>
-                  <div><b>Status:</b> {action.status}</div>
-                  <div><b>Submitted by:</b> {action.submitted_by}</div>
-                  <div><b>Created at:</b> {action.created_at}</div>
-                  {/* Collapsible AI Explanation */}
-                  {action.ai_explanation && (
-                    <div className="mt-2">
-                      <button
-                        onClick={() => setExpandedId(expandedId === action.id ? null : action.id)}
-                        className="text-sm text-blue-600 hover:text-blue-800 font-medium"
+      {/* Agent Actions */}
+      {typedActions.length === 0 ? (
+        <Card>
+          <CardContent className="py-12 text-center">
+            <Bot className="h-10 w-10 text-muted-foreground/30 mx-auto mb-3" />
+            <p className="text-sm text-muted-foreground">No agent actions yet.</p>
+          </CardContent>
+        </Card>
+      ) : (
+        typedActions.map((action) => {
+          const stat = statusConfig[action.status] || statusConfig.pending
+          const isExpanded = expandedId === action.id
+          const isPending = action.status === 'pending'
+
+          return (
+            <Card
+              key={action.id}
+              className={cn(
+                'transition-colors',
+                isPending && 'border-l-2 border-l-amber-500'
+              )}
+            >
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between gap-4">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5 flex-wrap">
+                      <span className="text-sm font-semibold">{action.action}</span>
+                      <Badge variant="outline" className={cn('text-xs gap-1', stat.class)}>
+                        {stat.icon}
+                        {action.status}
+                      </Badge>
+                      <Badge
+                        variant="outline"
+                        className={cn(
+                          'text-xs',
+                          action.source === 'llm'
+                            ? 'text-purple-500 border-purple-500/30 bg-purple-500/10'
+                            : 'text-muted-foreground'
+                        )}
                       >
-                        {expandedId === action.id ? 'Hide' : 'Show'} AI Explanation
-                      </button>
-                      {expandedId === action.id && (
-                        <div className="mt-2 p-3 bg-blue-50 border-l-4 border-blue-500 rounded text-sm text-blue-900">
-                          {action.ai_explanation}
-                        </div>
-                      )}
+                        {action.source === 'llm' ? `LLM` : 'Heuristic'}
+                        {action.model && ` · ${action.model}`}
+                      </Badge>
                     </div>
-                  )}
-                  <div className="flex gap-2 mt-2">
-                    {action.status === 'pending' && (
+                    <div className="flex items-center gap-4 text-xs text-muted-foreground">
+                      <span>By: {action.submitted_by}</span>
+                      <span className="tabular-nums">
+                        {new Date(action.created_at).toLocaleString()}
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Actions */}
+                  <div className="flex items-center gap-2 shrink-0">
+                    {isPending && (
                       <>
-                        <button className="px-2 py-1 bg-green-500 text-white rounded" onClick={() => approveAction.mutate({ actionId: action.id, approvedBy: 1 })}>Approve</button>
-                        <button className="px-2 py-1 bg-red-500 text-white rounded" onClick={() => rejectAction.mutate({ actionId: action.id, approvedBy: 1 })}>Reject</button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => approveAction.mutate({ actionId: action.id, approvedBy: 1 })}
+                          className="text-emerald-500 border-emerald-500/30 hover:bg-emerald-500/10 h-7 text-xs"
+                        >
+                          <CheckCircle className="h-3 w-3 mr-1" />
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => rejectAction.mutate({ actionId: action.id, approvedBy: 1 })}
+                          className="text-red-500 border-red-500/30 hover:bg-red-500/10 h-7 text-xs"
+                        >
+                          <XCircle className="h-3 w-3 mr-1" />
+                          Reject
+                        </Button>
                       </>
                     )}
                   </div>
-                </li>
-              ))}
-            </ul>
-          )}
-        </CardContent>
-      </Card>
-      {/* Example triage trigger (replace with real form as needed) */}
-      <Card>
-        <CardHeader>
-          <CardTitle>Trigger Triage (Demo)</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <button className="px-4 py-2 bg-blue-500 text-white rounded" onClick={() => triageIncident.mutate({ incident_id: 'demo', description: 'Test incident' })}>
-            Trigger Triage
-          </button>
-        </CardContent>
-      </Card>
+                </div>
+
+                {/* AI Explanation */}
+                {action.ai_explanation && (
+                  <div className="mt-3">
+                    <button
+                      onClick={() => setExpandedId(isExpanded ? null : action.id)}
+                      className="flex items-center gap-1 text-xs font-medium text-primary hover:text-primary/80 transition-colors"
+                    >
+                      {isExpanded ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
+                      AI Explanation
+                    </button>
+                    {isExpanded && (
+                      <div className="mt-2 p-3 rounded-lg bg-primary/5 border border-primary/10 text-sm text-foreground">
+                        {action.ai_explanation}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          )
+        })
+      )}
     </div>
   )
 }

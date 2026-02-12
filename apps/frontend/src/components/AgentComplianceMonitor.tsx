@@ -187,31 +187,31 @@ export function AgentComplianceMonitor() {
   
   const getActionBadgeColor = (action: string) => {
     switch (action) {
-      case 'approve': return 'bg-green-100 text-green-800 border-green-300';
-      case 'block': return 'bg-red-100 text-red-800 border-red-300';
-      case 'manual_review': return 'bg-yellow-100 text-yellow-800 border-yellow-300';
-      default: return 'bg-gray-100 text-gray-800 border-gray-300';
+      case 'approve': return 'bg-emerald-500/10 text-emerald-500 border-emerald-500/30';
+      case 'block': return 'bg-red-500/10 text-red-500 border-red-500/30';
+      case 'manual_review': return 'bg-amber-500/10 text-amber-500 border-amber-500/30';
+      default: return 'bg-muted text-muted-foreground border-border';
     }
   };
   
   return (
-    <div className="w-full max-w-4xl mx-auto p-6 bg-white rounded-lg shadow-lg">
+    <div className="w-full max-w-4xl mx-auto p-6 bg-card rounded-lg border border-border">
       {/* Header */}
       <div className="mb-6">
         <div className="flex items-center gap-3 mb-2">
           <span className="text-3xl">🤖</span>
-          <h2 className="text-2xl font-bold text-gray-900">
+          <h2 className="text-2xl font-bold text-foreground">
             AI Agent: Financial Compliance Monitor
           </h2>
         </div>
         <div className="flex gap-2 flex-wrap">
-          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/30">
             FINRA 4511
           </span>
-          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-100 text-blue-800 border border-blue-300">
+          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-blue-500/10 text-blue-500 border border-blue-500/30">
             SEC 17a-4
           </span>
-          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-purple-100 text-purple-800 border border-purple-300">
+          <span className="px-3 py-1 text-xs font-semibold rounded-full bg-purple-500/10 text-purple-500 border border-purple-500/30">
             Isolation Forest ML v{metrics?.model?.version || '2.0.0'}
           </span>
         </div>
@@ -220,7 +220,7 @@ export function AgentComplianceMonitor() {
       {/* Metrics Dashboard */}
       <div className="mb-6">
         <div className="flex items-center justify-between mb-3">
-          <h3 className="font-semibold text-gray-700">📊 Performance Metrics</h3>
+          <h3 className="font-semibold text-foreground">📊 Performance Metrics</h3>
           <button
             onClick={fetchMetrics}
             disabled={metricsLoading}
@@ -230,44 +230,44 @@ export function AgentComplianceMonitor() {
           </button>
         </div>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          <div className="bg-slate-50 p-3 rounded-lg border border-slate-200">
-            <div className="text-xs text-gray-500 mb-1">Total Processed</div>
-            <div className="text-xl font-bold text-gray-900">
+          <div className="bg-muted p-3 rounded-lg border border-border">
+            <div className="text-xs text-muted-foreground mb-1">Total Processed</div>
+            <div className="text-xl font-bold text-foreground tabular-nums">
               {metrics?.total_transactions ?? 0}
             </div>
           </div>
-          <div className="bg-green-50 p-3 rounded-lg border border-green-200">
-            <div className="text-xs text-gray-500 mb-1">Auto-Approved</div>
-            <div className="text-xl font-bold text-green-700">
+          <div className="bg-emerald-500/5 p-3 rounded-lg border border-emerald-500/20">
+            <div className="text-xs text-muted-foreground mb-1">Auto-Approved</div>
+            <div className="text-xl font-bold text-emerald-500 tabular-nums">
               {metrics?.approval_rate ?? 0}%
             </div>
           </div>
-          <div className="bg-red-50 p-3 rounded-lg border border-red-200">
-            <div className="text-xs text-gray-500 mb-1">Blocked</div>
-            <div className="text-xl font-bold text-red-700">
+          <div className="bg-red-500/5 p-3 rounded-lg border border-red-500/20">
+            <div className="text-xs text-muted-foreground mb-1">Blocked</div>
+            <div className="text-xl font-bold text-red-500 tabular-nums">
               {metrics?.block_rate ?? 0}%
             </div>
           </div>
-          <div className="bg-blue-50 p-3 rounded-lg border border-blue-200">
-            <div className="text-xs text-gray-500 mb-1">Avg Confidence</div>
-            <div className="text-xl font-bold text-blue-700">
+          <div className="bg-blue-500/5 p-3 rounded-lg border border-blue-500/20">
+            <div className="text-xs text-muted-foreground mb-1">Avg Confidence</div>
+            <div className="text-xl font-bold text-blue-500 tabular-nums">
               {metrics?.avg_confidence ?? 0}%
             </div>
           </div>
         </div>
         {metrics?.storage && (
-          <div className="mt-2 text-xs text-gray-400">
+          <div className="mt-2 text-xs text-muted-foreground">
             Storage: {metrics.storage} | Model: {metrics?.model?.algorithm || 'IsolationForest'}
           </div>
         )}
       </div>
       
       {/* Test Batch Section */}
-      <div className="mb-6 p-4 bg-amber-50 rounded-lg border border-amber-200">
+      <div className="mb-6 p-4 bg-amber-500/5 rounded-lg border border-amber-500/20">
         <div className="flex items-center justify-between">
           <div>
-            <h3 className="font-semibold text-amber-800">🧪 Batch Testing</h3>
-            <p className="text-xs text-amber-700 mt-1">
+            <h3 className="font-semibold text-amber-500">🧪 Batch Testing</h3>
+            <p className="text-xs text-amber-500/70 mt-1">
               Run 100 synthetic transactions to validate model performance
             </p>
           </div>
@@ -276,7 +276,7 @@ export function AgentComplianceMonitor() {
             disabled={testBatchLoading}
             className={`px-4 py-2 rounded-lg font-semibold text-sm transition-all ${
               testBatchLoading
-                ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                ? 'bg-muted text-muted-foreground cursor-not-allowed'
                 : 'bg-amber-600 text-white hover:bg-amber-700'
             }`}
           >
@@ -284,23 +284,23 @@ export function AgentComplianceMonitor() {
           </button>
         </div>
         {testBatchResult && (
-          <div className="mt-4 p-3 bg-white rounded border border-amber-200">
+          <div className="mt-4 p-3 bg-card rounded border border-amber-500/20">
             <div className="grid grid-cols-4 gap-2 text-center text-sm">
               <div>
                 <div className="font-bold text-green-600">{testBatchResult.approval_rate}%</div>
-                <div className="text-xs text-gray-500">Approved</div>
+                <div className="text-xs text-muted-foreground">Approved</div>
               </div>
               <div>
                 <div className="font-bold text-yellow-600">{testBatchResult.manual_review_rate}%</div>
-                <div className="text-xs text-gray-500">Review</div>
+                <div className="text-xs text-muted-foreground">Review</div>
               </div>
               <div>
-                <div className="font-bold text-red-600">{testBatchResult.block_rate}%</div>
-                <div className="text-xs text-gray-500">Blocked</div>
+                <div className="font-bold text-red-500">{testBatchResult.block_rate}%</div>
+                <div className="text-xs text-muted-foreground">Blocked</div>
               </div>
               <div>
-                <div className="font-bold text-blue-600">{testBatchResult.avg_confidence}%</div>
-                <div className="text-xs text-gray-500">Confidence</div>
+                <div className="font-bold text-blue-500">{testBatchResult.avg_confidence}%</div>
+                <div className="text-xs text-muted-foreground">Confidence</div>
               </div>
             </div>
           </div>
@@ -309,7 +309,7 @@ export function AgentComplianceMonitor() {
       
       {/* Transaction Selector */}
       <div className="mb-6">
-        <label className="block text-sm font-semibold text-gray-700 mb-2">
+        <label className="block text-sm font-semibold text-foreground mb-2">
           Select Test Transaction:
         </label>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -319,12 +319,12 @@ export function AgentComplianceMonitor() {
               onClick={() => setSelectedTxn(txn)}
               className={`p-3 rounded-lg border-2 transition-all text-left ${
                 selectedTxn.id === txn.id
-                  ? 'border-blue-500 bg-blue-50'
-                  : 'border-gray-200 bg-white hover:border-gray-300'
+                  ? 'border-primary bg-primary/5'
+                  : 'border-border bg-card hover:border-muted-foreground/30'
               }`}
             >
               <div className="font-semibold text-sm">{txn.label}</div>
-              <div className="text-xs text-gray-600 mt-1">
+              <div className="text-xs text-muted-foreground mt-1">
                 {txn.counterparty}
               </div>
             </button>
@@ -333,11 +333,11 @@ export function AgentComplianceMonitor() {
       </div>
       
       {/* Transaction Details */}
-      <div className="mb-6 bg-slate-50 p-4 rounded-lg border border-slate-200">
-        <h3 className="font-semibold text-sm text-gray-700 mb-2">
+      <div className="mb-6 bg-muted p-4 rounded-lg border border-border">
+        <h3 className="font-semibold text-sm text-foreground mb-2">
           Transaction Details
         </h3>
-        <pre className="text-xs text-gray-800 overflow-auto">
+        <pre className="text-xs text-muted-foreground overflow-auto">
           {JSON.stringify(selectedTxn, null, 2)}
         </pre>
       </div>
@@ -348,8 +348,8 @@ export function AgentComplianceMonitor() {
         disabled={loading}
         className={`w-full py-3 px-6 rounded-lg font-semibold text-white transition-all ${
           loading
-            ? 'bg-gray-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+            ? 'bg-muted text-muted-foreground cursor-not-allowed'
+            : 'bg-primary text-primary-foreground hover:bg-primary/90'
         }`}
       >
         {loading ? (
@@ -367,10 +367,10 @@ export function AgentComplianceMonitor() {
       
       {/* Error Display */}
       {error && (
-        <div className="mt-6 p-4 bg-red-50 border-l-4 border-red-500 rounded">
+        <div className="mt-6 p-4 bg-red-500/5 border-l-4 border-red-500 rounded">
           <div className="flex items-center gap-2">
-            <span className="text-red-600 font-semibold">❌ Error:</span>
-            <span className="text-red-700">{error}</span>
+            <span className="text-red-500 font-semibold">❌ Error:</span>
+            <span className="text-red-400">{error}</span>
           </div>
         </div>
       )}
@@ -383,40 +383,40 @@ export function AgentComplianceMonitor() {
             <span className={`px-4 py-2 text-sm font-bold rounded-lg border-2 ${getActionBadgeColor(result.action)}`}>
               {result.action.toUpperCase().replace('_', ' ')}
             </span>
-            <span className="text-sm text-gray-600">
-              Confidence: <span className="font-semibold">{result.confidence}%</span>
+            <span className="text-sm text-muted-foreground">
+              Confidence: <span className="font-semibold tabular-nums">{result.confidence}%</span>
             </span>
           </div>
           
           {/* Reasoning */}
-          <div className="bg-blue-50 border-l-4 border-blue-500 p-4 rounded">
-            <p className="text-sm font-semibold text-blue-900 mb-1">
+          <div className="bg-primary/5 border-l-4 border-primary p-4 rounded">
+            <p className="text-sm font-semibold text-foreground mb-1">
               🧠 Agent Reasoning:
             </p>
-            <p className="text-sm text-blue-800">{result.reasoning}</p>
+            <p className="text-sm text-muted-foreground">{result.reasoning}</p>
           </div>
           
           {/* Alternatives */}
           {result.alternatives.length > 0 && (
             <div>
-              <p className="text-sm font-semibold text-gray-700 mb-2">
+              <p className="text-sm font-semibold text-foreground mb-2">
                 🔀 Alternative Actions Considered:
               </p>
               <div className="space-y-2">
                 {result.alternatives.map((alt, idx) => (
                   <div
                     key={idx}
-                    className="bg-slate-50 p-3 rounded-lg border border-slate-200"
+                    className="bg-muted p-3 rounded-lg border border-border"
                   >
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="font-semibold text-sm text-gray-900">
+                      <span className="font-semibold text-sm text-foreground">
                         {alt.action}
                       </span>
-                      <span className="text-xs text-gray-500">
+                      <span className="text-xs text-muted-foreground">
                         ({(alt.confidence * 100).toFixed(1)}% confidence)
                       </span>
                     </div>
-                    <p className="text-xs text-gray-700">{alt.reasoning}</p>
+                    <p className="text-xs text-muted-foreground">{alt.reasoning}</p>
                   </div>
                 ))}
               </div>
@@ -424,11 +424,11 @@ export function AgentComplianceMonitor() {
           )}
           
           {/* Audit Trail */}
-          <div className="bg-gray-50 p-4 rounded-lg border-t-2 border-gray-300">
-            <p className="text-xs font-semibold text-gray-600 mb-2">
+          <div className="bg-muted p-4 rounded-lg border-t-2 border-border">
+            <p className="text-xs font-semibold text-muted-foreground mb-2">
               📋 Audit Trail
             </p>
-            <div className="space-y-1 text-xs text-gray-700">
+            <div className="space-y-1 text-xs text-foreground">
               <div className="flex gap-2">
                 <span className="font-semibold">Regulation:</span>
                 <span>{result.audit_trail.regulation}</span>
