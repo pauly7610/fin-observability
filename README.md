@@ -3,7 +3,7 @@
 [![CI](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
 [![Deploy](https://img.shields.io/badge/Railway-deployed-blueviolet?logo=railway)](https://fin-observability-production.up.railway.app)
 [![Grafana](https://img.shields.io/badge/Grafana-dashboard-F46800?logo=grafana)](https://pauly7610.grafana.net)
-[![Tests](https://img.shields.io/badge/tests-84-brightgreen?logo=pytest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
+[![Tests](https://img.shields.io/badge/tests-122-brightgreen?logo=pytest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](https://nextjs.org/)
 [![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-1.39-7B61FF?logo=opentelemetry)](https://opentelemetry.io/)
@@ -110,8 +110,9 @@ Transport: Streamable HTTP
 |------|-------------|
 | `check_transaction_compliance` | Score a transaction — returns approve/review decision, anomaly score, risk factors, FINRA reference |
 | `explain_transaction` | SHAP-based feature importance showing WHY the model flagged or approved |
-| `batch_check_compliance` | Score up to 100 transactions in one call — ideal for ledger scanning |
-| `analyze_portfolio` | Aggregate risk assessment: risk distribution, top flagged items, concentration warnings |
+| `batch_check_compliance` | Score up to 10,000 transactions in one call — ideal for ledger scanning |
+| `analyze_portfolio` | Aggregate risk assessment: risk distribution, top flagged items, concentration warnings (up to 10K) |
+| `ingest_transactions` | Push up to 10,000 transactions for scoring + storage — MCP equivalent of the webhook endpoint |
 | `get_compliance_metrics` | Real-time approval rates, confidence scores, model info |
 | `list_incidents` | Browse incidents with status/severity filters |
 | `get_drift_status` | PSI + KS test results and retrain recommendations |
@@ -128,6 +129,20 @@ Transport: Streamable HTTP
   }
 }
 ```
+
+### Webhook & Streaming System
+
+Four ways to get data in and results out — all feeding the same ML scoring pipeline:
+
+| Channel | Endpoint | Description |
+|---------|----------|-------------|
+| **Inbound Webhook** | `POST /webhooks/transactions` | Push up to 10,000 transactions per request (Plaid, Stripe, bank feeds) |
+| **SSE Stream** | `GET /webhooks/stream` | Real-time Server-Sent Events feed of every compliance decision |
+| **Outbound Notifications** | `POST /webhooks/callbacks` | Register callback URLs — flagged transactions are POSTed with 3x retry + dead letter queue |
+| **Scheduled Pull** | `POST /webhooks/pull/sources` | Configure external APIs to poll on a schedule — auto-scores and stores |
+| **System Status** | `GET /webhooks/status` | Full overview: SSE subscribers, callback count, DLQ size, pull sources |
+
+Authentication: `X-Webhook-Key` header or `?key=` query param (set `WEBHOOK_API_KEY` env var).
 
 ## Quick Start
 
@@ -147,7 +162,7 @@ docker compose up -d
 ### Run Tests
 
 ```bash
-# Backend (82 tests)
+# Backend (122 tests)
 DATABASE_URL=sqlite:///./test.db pytest apps/backend/tests/ -v
 
 # Frontend (2 tests)
@@ -173,10 +188,11 @@ fin-observability/
 │   ├── backend/                  # FastAPI + ML + Agents
 │   │   ├── ml/                   # Anomaly detector, drift detector, retraining
 │   │   ├── services/             # LLM-powered agent services
-│   │   ├── routers/              # API endpoints
+│   │   ├── routers/              # API endpoints (incl. webhooks.py — SSE, outbound, pull)
+│   │   ├── mcp_server.py         # MCP server — 9 tools for AI agents
 │   │   ├── telemetry.py          # OpenTelemetry setup (tracing + metrics)
 │   │   ├── rbac.py               # Role-based access control
-│   │   └── tests/                # 82 tests (RBAC, drift, telemetry, integration)
+│   │   └── tests/                # 122 tests (webhooks, RBAC, drift, telemetry, integration)
 │   └── frontend/                 # Next.js 16 (App Router, React 19)
 │       └── __tests__/            # Jest smoke tests
 ├── otel-collector/               # OTel Collector config + Dockerfile
@@ -197,7 +213,7 @@ fin-observability/
 | **Observability** | OpenTelemetry SDK, OTel Collector, Grafana Cloud (Tempo + Prometheus) |
 | **Infra** | Railway, Docker Compose, Pulumi IaC |
 | **CI/CD** | GitHub Actions (pytest + Jest + Next.js build) |
-| **Testing** | pytest (82 backend), Jest (2 frontend), load_test.py |
+| **Testing** | pytest (122 backend), Jest (2 frontend), load_test.py |
 
 > For architectural decisions and tradeoffs, see [DESIGN.md](./DESIGN.md).
 
