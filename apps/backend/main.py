@@ -72,7 +72,6 @@ from apps.backend.routers import (
     transactions,
     system_metrics,
     users,
-    compliance_lcr,
     verification,
     anomaly,
     export_metadata,
@@ -121,7 +120,6 @@ app.include_router(incidents.router)
 app.include_router(transactions.router)
 app.include_router(system_metrics.router)
 app.include_router(users.router)
-app.include_router(compliance_lcr.router)
 app.include_router(verification.router)
 app.include_router(auth.router)
 app.include_router(ops_metrics.router)
@@ -257,6 +255,24 @@ async def start_pull_ingestion():
 async def stop_pull_ingestion():
     pull_ingestion.stop()
 
+# Start Kafka consumer in-app when KAFKA_BROKERS is set
+import threading
+
+@app.on_event("startup")
+async def start_kafka_consumer():
+    brokers = os.getenv("KAFKA_BROKERS", "")
+    if not brokers:
+        return
+    try:
+        from apps.backend.kafka_consumer_service import run_consumer, set_main_loop
+        import asyncio
+        set_main_loop(asyncio.get_running_loop())
+        t = threading.Thread(target=run_consumer, daemon=True)
+        t.start()
+        logging.getLogger(__name__).info(f"Kafka consumer started (brokers={brokers})")
+    except Exception as e:
+        logging.getLogger(__name__).warning(f"Kafka consumer failed to start: {e}")
+
 # Limiter is now created below and imported by routers
 
 
@@ -376,6 +392,20 @@ async def get_platform_metrics():
         }
     finally:
         db.close()
+
+
+@app.get("/api/kafka/status")
+async def get_kafka_status():
+    """Return Kafka consumer status for the Connect page."""
+    brokers = os.getenv("KAFKA_BROKERS", "")
+    topics = os.getenv("KAFKA_TOPICS", "orders,executions,trades").split(",")
+    threshold = os.getenv("STUCK_ORDER_THRESHOLD_MINUTES", "5")
+    return {
+        "enabled": bool(brokers),
+        "brokers": brokers or "(not configured)",
+        "topics": topics,
+        "stuck_order_threshold_minutes": int(threshold),
+    }
 
 
 @app.get("/api/systems")

@@ -9,30 +9,25 @@ The Financial AI Observability Platform blends the real-time, data-rich feel of 
 ## Key Design Principles
 
 1. **Real-Time, Modular Dashboard**
-
    - Persistent panels for live metrics, alerts, and compliance status.
    - Dense tables and charts in a grid layout, optimized for ultrawide monitors.
    - Dark mode by default, with high-contrast elements for clarity.
 
 2. **Agentic Command & ChatOps**
-
    - Always-available command bar (bottom or via hotkey) for natural language and slash commands.
    - Conversational agent panel for step-by-step workflows, agent suggestions, and approvals.
 
 3. **Workflow & Task Sidebar**
-
    - Sidebar or overlay listing ongoing, pending, and completed agentic tasks.
    - Each task shows status, owner (agent/human), and next action.
    - Click into tasks for full audit trail and agent reasoning.
 
 4. **Actionable Notifications & Suggestions**
-
    - Inline agentic prompts (“Agent recommends restart—approve?”) with one-click actions.
    - Color-coded notifications for severity and urgency.
 
 5. **Compliance & Audit Transparency**
-
-   - Compliance badges always visible (SEC 17a-4, FINRA, Basel III).
+   - Compliance badges always visible (SEC 17a-4, FINRA).
    - Filterable audit log panel, exportable as CSV/PDF.
    - “Download Compliance Report” and “View Agent Actions” always one click away.
 

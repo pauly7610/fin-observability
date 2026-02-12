@@ -10,18 +10,28 @@ Best practice: Run as a separate process/service for reliability and scaling.
 import os
 import json
 import time
+import asyncio
 from confluent_kafka import Consumer, KafkaException
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy import create_engine
 from apps.backend.models import Incident
 from apps.backend.services.anomaly_detection_service import AnomalyDetectionService
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from apps.backend.main import incident_broadcaster
 
 # --- CONFIGURATION ---
-KAFKA_BROKERS = os.getenv("KAFKA_BROKERS", "localhost:9092")
+KAFKA_BROKERS = os.getenv("KAFKA_BROKERS", "")
 KAFKA_GROUP = os.getenv("KAFKA_GROUP", "fin-observability-consumer")
 KAFKA_TOPICS = os.getenv("KAFKA_TOPICS", "orders,executions,trades").split(",")
+STUCK_ORDER_THRESHOLD_MINUTES = int(os.getenv("STUCK_ORDER_THRESHOLD_MINUTES", "5"))
+
+# Optional: set by main.py when running in-app for broadcast scheduling
+_main_loop = None
+
+
+def set_main_loop(loop):
+    global _main_loop
+    _main_loop = loop
 
 SQLALCHEMY_DATABASE_URL = os.getenv("DATABASE_URL", "sqlite:///./test.db")
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -29,10 +39,14 @@ SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 
 
 # --- MAIN CONSUMER LOOP ---
-def main():
+def run_consumer():
+    """Run Kafka consumer loop. Call from a thread when KAFKA_BROKERS is set."""
+    brokers = os.getenv("KAFKA_BROKERS", "")
+    if not brokers:
+        return
     consumer = Consumer(
         {
-            "bootstrap.servers": KAFKA_BROKERS,
+            "bootstrap.servers": brokers,
             "group.id": KAFKA_GROUP,
             "auto.offset.reset": "earliest",
         }
@@ -82,13 +96,21 @@ def process_event(event, event_type, anomaly_service):
     recommended_action = None
     priority = 2
 
-    # Example: Stuck order
+    # Stuck order: pending for longer than threshold
     if event_type == "orders" and normalized["status"] == "pending":
-        # TODO: Add logic to check if order is stuck (e.g., time in state > threshold)
-        incident_type = "stuck_order"
-        root_cause = "Order in pending state too long."
-        recommended_action = "Investigate order routing and connectivity."
-        priority = 1
+        ts_str = str(normalized.get("timestamp") or event.get("created_at") or "")
+        try:
+            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00")) if ts_str else datetime.utcnow()()
+            if ts.tzinfo:
+                ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
+        except Exception:
+            ts = datetime.utcnow()
+        age_minutes = (datetime.utcnow() - ts).total_seconds() / 60
+        if age_minutes >= STUCK_ORDER_THRESHOLD_MINUTES:
+            incident_type = "stuck_order"
+            root_cause = f"Order in pending state for {int(age_minutes)} minutes (threshold: {STUCK_ORDER_THRESHOLD_MINUTES} min)."
+            recommended_action = "Investigate order routing and connectivity."
+            priority = 1
     # Example: Missed trade
     elif (
         event_type == "trades"
@@ -132,24 +154,34 @@ def process_event(event, event_type, anomaly_service):
             db.add(incident)
             db.commit()
             print(f"[Kafka] Incident created: {incident.incident_id}")
-            # Broadcast to WebSocket clients
-            import asyncio
-
-            asyncio.create_task(
-                incident_broadcaster.broadcast(
-                    json.dumps(
-                        {
-                            c.name: getattr(incident, c.name)
-                            for c in Incident.__table__.columns
-                        }
-                    )
+            if priority == 1:
+                try:
+                    from apps.backend.services.notification_service import send_incident_notification
+                    send_incident_notification(incident)
+                except Exception as n:
+                    print(f"[Kafka] Notification failed: {n}")
+            # Broadcast to WebSocket clients when running in-app
+            if _main_loop:
+                payload = json.dumps(
+                    {c.name: str(getattr(incident, c.name)) for c in Incident.__table__.columns}
                 )
-            )
+                asyncio.run_coroutine_threadsafe(
+                    incident_broadcaster.broadcast(payload), _main_loop
+                )
         except Exception as e:
             db.rollback()
             print(f"[Kafka] Failed to create incident: {e}")
         finally:
             db.close()
+
+
+def main():
+    """Standalone entrypoint: run consumer if KAFKA_BROKERS set."""
+    brokers = os.getenv("KAFKA_BROKERS", "localhost:9092")
+    if not brokers:
+        print("[Kafka] KAFKA_BROKERS not set, exiting")
+        return
+    run_consumer()
 
 
 if __name__ == "__main__":

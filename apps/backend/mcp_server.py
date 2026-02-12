@@ -660,9 +660,4 @@ def resource_regulations() -> str:
             "description": "Requires broker-dealers to preserve certain records",
             "retention_years": 6,
         },
-        "Basel_III_LCR": {
-            "name": "Basel III Liquidity Coverage Ratio",
-            "description": "Banks must hold enough liquid assets to cover 30-day outflows",
-            "minimum_lcr_pct": 100,
-        },
     })

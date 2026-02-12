@@ -65,6 +65,7 @@ wheels/
 # === Misc ===
 *.sqlite3
 db.sqlite3
+test.db
 *.bak
 *.tmp
 

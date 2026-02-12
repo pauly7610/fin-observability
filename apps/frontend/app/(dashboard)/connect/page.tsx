@@ -19,6 +19,7 @@ import {
   Shield,
   Terminal,
   Zap,
+  MessageSquare,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import apiClient from '@/lib/api-client'
@@ -90,6 +91,13 @@ interface MCPStats {
   }>
 }
 
+interface KafkaStatus {
+  enabled: boolean
+  brokers: string
+  topics: string[]
+  stuck_order_threshold_minutes: number
+}
+
 export default function ConnectPage() {
   const [tools, setTools] = useState<MCPTool[]>([])
   const [stats, setStats] = useState<MCPStats | null>(null)
@@ -103,18 +111,21 @@ export default function ConnectPage() {
   const [tryType, setTryType] = useState('wire_transfer')
   const [tryResult, setTryResult] = useState<Record<string, unknown> | null>(null)
   const [tryLoading, setTryLoading] = useState(false)
+  const [kafkaStatus, setKafkaStatus] = useState<KafkaStatus | null>(null)
 
   // Fetch tools and stats
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [toolsRes, statsRes] = await Promise.all([
+        const [toolsRes, statsRes, kafkaRes] = await Promise.all([
           apiClient.get<MCPToolsResponse>('/mcp/tools'),
           apiClient.get<MCPStats>('/mcp/stats'),
+          apiClient.get<KafkaStatus>('/api/kafka/status').catch(() => ({ data: null })),
         ])
         setTools(toolsRes.data.tools || [])
         setStats(statsRes.data)
         setIsOnline(true)
+        setKafkaStatus(kafkaRes.data)
       } catch {
         setIsOnline(false)
       }
@@ -424,6 +435,57 @@ export default function ConnectPage() {
             </Card>
           )}
         </div>
+      </div>
+
+      {/* Kafka Event Ingestion */}
+      <div className="space-y-3">
+        <h2 className="text-lg font-semibold tracking-tight flex items-center gap-2">
+          <MessageSquare className="h-5 w-5 text-primary" />
+          Kafka Event Ingestion
+        </h2>
+        <p className="text-sm text-muted-foreground">
+          When <code className="bg-muted px-1 rounded">KAFKA_BROKERS</code> is set, the platform consumes trading events (orders, executions, trades) and auto-creates incidents for stuck orders, missed trades, and volume spikes.
+        </p>
+        <Card>
+          <CardContent className="pt-4 space-y-4">
+            <div className="flex items-center gap-3">
+              <div className={cn(
+                'flex items-center justify-center w-8 h-8 rounded-full',
+                kafkaStatus?.enabled ? 'bg-emerald-500/10' : 'bg-muted',
+              )}>
+                <Circle className={cn(
+                  'h-3 w-3',
+                  kafkaStatus?.enabled ? 'fill-emerald-500 text-emerald-500' : 'fill-muted-foreground text-muted-foreground',
+                )} />
+              </div>
+              <div>
+                <p className="text-sm font-medium">
+                  {kafkaStatus?.enabled ? 'Kafka consumer running' : 'Kafka not configured'}
+                </p>
+                <code className="text-xs text-muted-foreground font-mono">
+                  {kafkaStatus?.brokers || '(not configured)'}
+                </code>
+              </div>
+            </div>
+            {kafkaStatus && (
+              <div className="space-y-2">
+                <p className="text-xs font-medium">Topics</p>
+                <code className="text-xs font-mono bg-muted/50 px-2 py-1 rounded border border-border">
+                  {kafkaStatus.topics?.join(', ') || 'orders, executions, trades'}
+                </code>
+                <p className="text-xs text-muted-foreground">
+                  Stuck order threshold: {kafkaStatus.stuck_order_threshold_minutes} minutes
+                </p>
+              </div>
+            )}
+            <div>
+              <p className="text-xs font-medium mb-1.5">Environment</p>
+              <pre className="bg-muted/50 rounded-lg p-3 text-xs font-mono overflow-x-auto border border-border">{`KAFKA_BROKERS=localhost:9092
+KAFKA_TOPICS=orders,executions,trades
+STUCK_ORDER_THRESHOLD_MINUTES=5`}</pre>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Webhook Ingestion */}

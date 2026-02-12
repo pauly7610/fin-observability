@@ -2,7 +2,8 @@ import { z } from 'zod'
 
 // Incident Types
 export const IncidentSchema = z.object({
-  id: z.string(),
+  id: z.union([z.string(), z.number()]),
+  incident_id: z.string().optional(),
   title: z.string(),
   description: z.string(),
   status: z.string(),

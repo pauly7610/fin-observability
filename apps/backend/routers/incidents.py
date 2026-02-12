@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Request, Query
+from fastapi import APIRouter, Depends, HTTPException, Request, Query, Body
+import logging
 from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import List, Optional
@@ -16,8 +17,60 @@ from opentelemetry import trace
 import json
 from apps.backend.broadcast import incident_broadcaster
 tracer = trace.get_tracer(__name__)
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/incidents", tags=["incidents", "export"])
+
+
+# --- Agentic API (for IncidentTriageAgent) ---
+@router.post("/analyze")
+async def analyze_incident(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "analyst", "compliance", "viewer"])),
+):
+    """Analyze incident and return severity/impact/risk. Used by IncidentTriageAgent."""
+    from apps.backend.services.agent_service import AgenticTriageService
+    incident = body.get("incident", body)
+    result = AgenticTriageService().triage_incident(incident)
+    return {"result": result, "severity": result.get("risk_level"), "impact_areas": ["transactions", "compliance"], "risk_score": result.get("confidence", 0)}
+
+
+@router.post("/similar")
+async def get_similar_incidents(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "analyst", "compliance", "viewer"])),
+):
+    """Find similar incidents by type/desk/severity. Used by IncidentTriageAgent."""
+    incident = body.get("incident", body)
+    limit = body.get("limit", 5)
+    query = db.query(IncidentModel)
+    if incident.get("type"):
+        query = query.filter(IncidentModel.type == incident["type"])
+    if incident.get("desk"):
+        query = query.filter(IncidentModel.desk == incident["desk"])
+    if incident.get("severity"):
+        query = query.filter(IncidentModel.severity == incident["severity"])
+    incidents = query.order_by(IncidentModel.created_at.desc()).limit(limit).all()
+    return {"similar": [_incident_to_dict(inc) for inc in incidents]}
+
+
+@router.post("/remediation")
+async def suggest_remediation(
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "analyst", "compliance", "viewer"])),
+):
+    """Suggest remediation steps. Used by IncidentTriageAgent."""
+    from apps.backend.services.incident_remediation_service import IncidentRemediationService
+    incident = body.get("incident", body)
+    result = IncidentRemediationService().remediate_incident(incident)
+    steps = []
+    if result.get("recommendation"):
+        steps.append({"step": 1, "action": result["recommendation"], "priority": result.get("risk_level", "high"), "estimated_time": "15 minutes"})
+    return {"result": result, "steps": steps if steps else [{"step": 1, "action": "Manual review required", "priority": "high", "estimated_time": "N/A"}]}
+
 
 @router.get("/{incident_id}/agentic/suggestions")
 async def get_agentic_suggestions(incident_id: str, db: Session = Depends(get_db), user=Depends(require_role(["admin", "analyst", "compliance", "viewer"]))):
@@ -46,6 +99,39 @@ async def execute_agentic_action(incident_id: str, action_type: str, parameters:
         meta={"task_id": task_id, "parameters": parameters}
     )
     return {"task_id": task_id, "status": "running"}
+
+@router.patch("/{incident_id}/status")
+async def update_incident_status(
+    incident_id: str,
+    body: dict = Body(...),
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "analyst", "compliance"])),
+):
+    """Update incident status. Used by IncidentTriageAgent."""
+    from apps.backend.services.incident_activity_service import record_incident_activity
+    incident = db.query(IncidentModel).filter(IncidentModel.incident_id == incident_id).first()
+    if not incident:
+        raise HTTPException(status_code=404, detail="Incident not found")
+    new_status = body.get("status")
+    if not new_status:
+        raise HTTPException(status_code=400, detail="Missing 'status' in body")
+    old_status = incident.status
+    incident.status = new_status
+    if new_status == "resolved":
+        incident.resolved_at = datetime.utcnow()
+    incident.updated_at = datetime.utcnow()
+    db.commit()
+    record_incident_activity(
+        db=db,
+        incident_id=incident_id,
+        event_type="status_change",
+        user_id=getattr(user, "id", None),
+        old_value=old_status,
+        new_value=new_status,
+        comment=body.get("notes"),
+    )
+    return {"incident_id": incident_id, "status": new_status, "updated_at": incident.updated_at.isoformat(), "notes": body.get("notes")}
+
 
 @router.get("/{incident_id}/agentic/status/{task_id}")
 async def get_agentic_action_status(incident_id: str, task_id: str, db: Session = Depends(get_db), user=Depends(require_role(["admin", "analyst", "compliance", "viewer"]))):
@@ -107,18 +193,27 @@ async def get_incident_timeline(
             for a in activities
         ]
     }
-    # Only return timeline events from IncidentActivity records
-    timeline_sorted = sorted(timeline, key=lambda x: x.get("timestamp") or "")
-    return timeline_sorted
 
-# --- Notification Stub ---
+# --- Notification ---
 def notify_ops_team(incident):
-    if incident.priority == 1:
-        # TODO: Integrate with Slack/webhook
-        print(f"[NOTIFY] High-priority incident: {incident.incident_id} - {incident.title}")
+    """Notify ops team via Slack/webhook for high-priority incidents."""
+    from apps.backend.services.notification_service import send_incident_notification
+    send_incident_notification(incident)
 
 # --- Enhanced GET /incidents ---
-@router.get("/", response_model=List[dict])
+def _incident_to_dict(inc):
+    """Convert Incident ORM to JSON-serializable dict."""
+    d = {}
+    for c in IncidentModel.__table__.columns:
+        val = getattr(inc, c.name)
+        if hasattr(val, "isoformat"):
+            d[c.name] = val.isoformat() if val else None
+        else:
+            d[c.name] = val
+    return d
+
+
+@router.get("/")
 async def list_incidents(
     type: Optional[str] = None,
     desk: Optional[str] = None,
@@ -131,41 +226,10 @@ async def list_incidents(
     assigned_to: Optional[int] = None,
     start: Optional[str] = None,
     end: Optional[str] = None,
-    db: Session = Depends(get_db)
-    # user=Depends(require_role(["admin", "compliance", "analyst"]))
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
-    # For testing, return some mock data
-    test_incidents = [
-        {
-            "id": 1,
-            "incident_id": "INC-001",
-            "title": "High Severity Trading Alert",
-            "description": "Unusual trading pattern detected",
-            "severity": "high",
-            "status": "open",
-            "type": "trading_alert",
-            "desk": "Equities",
-            "trader": "John Doe",
-            "priority": 1,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat()
-        },
-        {
-            "id": 2,
-            "incident_id": "INC-002",
-            "title": "System Performance Degradation",
-            "description": "Response time increased by 200%",
-            "severity": "medium",
-            "status": "investigating",
-            "type": "system_alert",
-            "desk": "Infrastructure",
-            "priority": 2,
-            "created_at": datetime.utcnow().isoformat(),
-            "updated_at": datetime.utcnow().isoformat()
-        }
-    ]
-    
-    # If we have a database connection, try to get real data
+    """List incidents with optional filters. Returns { incidents: [...] }."""
     try:
         query = db.query(IncidentModel)
         if type:
@@ -193,13 +257,10 @@ async def list_incidents(
             from dateutil.parser import parse
             query = query.filter(IncidentModel.created_at <= parse(end))
         incidents = query.order_by(IncidentModel.created_at.desc()).all()
-        if incidents:
-            return [{c.name: getattr(inc, c.name) for c in IncidentModel.__table__.columns} for inc in incidents]
+        return {"incidents": [_incident_to_dict(inc) for inc in incidents]}
     except Exception as e:
-        print(f"Database query failed: {str(e)}")
-    
-    # Return test data if no real data is available
-    return test_incidents
+        logger.error(f"Database query failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 # --- 1-Click Ops Actions ---
 
@@ -497,7 +558,7 @@ async def export_incidents(request: Request,
                     event="Incidents exported as CSV",
                     host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
                     port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
-                    extra={"count": len(incidents), "user": str(user.get('id') if hasattr(user, 'id') else user)},
+                    extra={"count": len(incidents), "user": str(getattr(user, "id", None) or user)},
                     delivered_to=None,
                     delivery_method="manual",
                     delivery_status="delivered",

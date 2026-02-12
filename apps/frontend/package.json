@@ -15,6 +15,7 @@
     "remotion:render": "remotion render src/remotion/index.ts DemoVideo out/demo-video.mp4"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.37.3",
     "@fin-ai-observability/shared-types": "file:../../packages/shared-types",
     "@fin-ai-observability/telemetry": "file:../../packages/telemetry",
     "@radix-ui/react-avatar": "^1.1.10",

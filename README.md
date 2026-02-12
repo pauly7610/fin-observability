@@ -3,7 +3,8 @@
 [![CI](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml/badge.svg)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
 [![Deploy](https://img.shields.io/badge/Railway-deployed-blueviolet?logo=railway)](https://fin-observability-production.up.railway.app)
 [![Grafana](https://img.shields.io/badge/Grafana-dashboard-F46800?logo=grafana)](https://pauly7610.grafana.net)
-[![Tests](https://img.shields.io/badge/tests-122-brightgreen?logo=pytest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
+[![Backend Tests](https://img.shields.io/badge/backend%20tests-122-brightgreen?logo=pytest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
+[![Frontend Tests](https://img.shields.io/badge/frontend%20tests-35-brightgreen?logo=jest)](https://github.com/pauly7610/fin-observability/actions/workflows/ci.yml)
 [![Python](https://img.shields.io/badge/python-3.12-3776AB?logo=python&logoColor=white)](https://www.python.org/)
 [![Next.js](https://img.shields.io/badge/Next.js-16-000000?logo=next.js)](https://nextjs.org/)
 [![OpenTelemetry](https://img.shields.io/badge/OpenTelemetry-1.39-7B61FF?logo=opentelemetry)](https://opentelemetry.io/)
@@ -146,9 +147,10 @@ Every step in this chain — from the raw prediction to the human override — i
 
 ### Access Control & Compliance
 
+- **Authentication** — Clerk for sign-in, sign-up, and session management
 - **RBAC** — Four roles (admin/compliance/analyst/viewer) with 25 fine-grained permissions
 - **Audit trail** — Every action, override, and escalation is logged with timestamps and actor identity
-- **Regulatory alignment** — SEC 17a-4 / FINRA 4511 rule engine, Basel III LCR calculations
+- **Regulatory alignment** — SEC 17a-4 / FINRA 4511 rule engine
 
 ### Webhook & Streaming System
 
@@ -179,13 +181,24 @@ pnpm install && pnpm run dev
 docker compose up -d
 ```
 
+### Clerk Authentication
+
+Sign-in and sign-up use [Clerk](https://clerk.com). Set these env vars for the frontend:
+
+```bash
+NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY=pk_test_...
+CLERK_SECRET_KEY=sk_test_...
+```
+
+Get keys at [dashboard.clerk.com](https://dashboard.clerk.com). For local dev, Clerk's keyless mode works when keys are unset.
+
 ### Run Tests
 
 ```bash
 # Backend (122 tests)
 DATABASE_URL=sqlite:///./test.db pytest apps/backend/tests/ -v
 
-# Frontend (2 tests)
+# Frontend (35 tests)
 pnpm run test --filter=@fin-ai-observability/frontend
 ```
 
@@ -229,11 +242,11 @@ fin-observability/
 | **Backend**       | FastAPI, SQLAlchemy, PostgreSQL, Redis                                |
 | **ML**            | scikit-learn (Isolation Forest), ONNX Runtime (PCA-Autoencoder), SHAP |
 | **LLM**           | LangChain (OpenAI / Anthropic / Google Gemini)                        |
-| **Frontend**      | Next.js 16, React 19, TailwindCSS, Recharts, TanStack Query           |
+| **Frontend**      | Next.js 16, React 19, TailwindCSS, Recharts, TanStack Query, Clerk     |
 | **Observability** | OpenTelemetry SDK, OTel Collector, Grafana Cloud (Tempo + Prometheus) |
 | **Infra**         | Railway, Docker Compose, Pulumi IaC                                   |
 | **CI/CD**         | GitHub Actions (pytest + Jest + Next.js build)                        |
-| **Testing**       | pytest (122 backend), Jest (2 frontend), load_test.py                 |
+| **Testing**       | pytest (122 backend), Jest (35 frontend), load_test.py                 |
 
 > For architectural decisions and tradeoffs, see [DESIGN.md](./DESIGN.md).
 

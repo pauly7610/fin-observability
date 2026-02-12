@@ -4,14 +4,6 @@
 import React from 'react'
 import { render, screen } from '@testing-library/react'
 
-// Mock next/navigation since we're outside the Next.js runtime
-jest.mock('next/navigation', () => ({
-  redirect: jest.fn(),
-  useRouter: () => ({ push: jest.fn(), replace: jest.fn(), prefetch: jest.fn() }),
-  usePathname: () => '/incidents',
-  useSearchParams: () => new URLSearchParams(),
-}))
-
 describe('Error Boundary', () => {
   it('renders error message and retry button', async () => {
     const { default: ErrorPage } = await import('../app/error')

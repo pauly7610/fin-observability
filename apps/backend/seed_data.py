@@ -12,10 +12,10 @@ import os
 import sys
 import random
 import uuid
-import hashlib
 from datetime import datetime, timedelta
 
 from apps.backend.database import SessionLocal, engine
+from apps.backend.routers.auth import pwd_context
 from apps.backend.models import (
     Base,
     User,
@@ -86,7 +86,7 @@ def seed_users(db):
         if not existing:
             db.add(User(
                 email=u["email"],
-                hashed_password=hashlib.sha256(b"seed_password").hexdigest(),
+                hashed_password=pwd_context.hash("seed_password"),
                 full_name=u["full_name"],
                 role=u["role"],
                 is_active=True,

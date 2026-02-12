@@ -174,7 +174,7 @@ async def export_compliance_logs(
                     port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
                     extra={
                         "count": len(logs),
-                        "user": str(user.get("id") if hasattr(user, "id") else user),
+                        "user": str(getattr(user, "id", None) or user),
                     },
                 )
                 return [log.__dict__ for log in logs]

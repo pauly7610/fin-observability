@@ -8,7 +8,6 @@ from ..services.compliance_automation_service import ComplianceAutomationService
 from ..services.audit_summary_service import AuditSummaryService
 from ..services.llm_utils import get_llm_config, set_llm_config
 from ..services.agentic_workflow_service import AgenticWorkflowService
-from ..services.basel_compliance_service import BaselComplianceService
 from ..services.metrics_service import get_metrics_service
 from ..ml.anomaly_detector import get_detector
 from ..security import require_role
@@ -39,21 +38,7 @@ remediation_service = IncidentRemediationService()
 compliance_service = ComplianceAutomationService()
 audit_summary_service = AuditSummaryService()
 workflow_service = AgenticWorkflowService()
-basel_service = BaselComplianceService()
 tracer = trace.get_tracer(__name__)
-
-
-@router.get("/compliance/lcr")
-async def get_lcr_status(lookback_days: int = 30, db: Session = Depends(get_db)):
-    """
-    Get Basel III Liquidity Coverage Ratio (LCR) compliance status.
-    """
-    try:
-        result = basel_service.calculate_lcr(db, lookback_days=lookback_days)
-        return result
-    except Exception as e:
-        logger.error(f"Error calculating LCR: {str(e)}")
-        raise HTTPException(status_code=500, detail=str(e))
 
 
 @router.post("/triage")

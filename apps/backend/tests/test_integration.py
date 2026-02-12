@@ -255,10 +255,3 @@ def test_anomaly_detect():
     assert resp.status_code == 200, f"Anomaly detect failed: {resp.text}"
 
 
-# --- LCR ---
-
-def test_lcr_endpoint():
-    """Basel III LCR endpoint should return without crashing."""
-    resp = client.get("/agent/compliance/lcr?lookback_days=30")
-    # May return 200 or 500 depending on DB state
-    assert resp.status_code in (200, 500)

@@ -55,12 +55,14 @@ def send_export_email(subject, body, attachment_path):
             host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
             port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
         )
+        return True
     except Exception as e:
         siem.send_syslog_event(
             f"Failed to email export {attachment_path}: {e}",
             host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
             port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
         )
+        return False
 
 
 def upload_export_s3(attachment_path):
@@ -77,18 +79,21 @@ def upload_export_s3(attachment_path):
             host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
             port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
         )
+        return True
     except NoCredentialsError:
         siem.send_syslog_event(
             f"S3 credentials not available for {attachment_path}",
             host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
             port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
         )
+        return False
     except Exception as e:
         siem.send_syslog_event(
             f"Failed to upload export to S3 {attachment_path}: {e}",
             host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
             port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
         )
+        return False
 
 
 def hash_chain_csv(filename):

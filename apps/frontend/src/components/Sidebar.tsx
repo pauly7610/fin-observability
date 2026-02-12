@@ -22,6 +22,13 @@ import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
 import { useState } from 'react'
 import { UserNav } from '@/components/user-nav'
+import { SignedIn, SignedOut } from '@clerk/nextjs'
+
+const hasClerk = !!(
+  typeof process !== 'undefined' &&
+  process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY &&
+  !process.env.NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY.includes('placeholder')
+)
 
 const navItems = [
   { href: '/', label: 'Dashboard', icon: LayoutDashboard },
@@ -155,12 +162,21 @@ export function Sidebar() {
             'flex items-center pt-2',
             collapsed ? 'justify-center' : 'gap-3 px-3'
           )}>
-            <UserNav />
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="text-xs font-medium truncate">Admin</p>
-                <p className="text-xs text-muted-foreground truncate">admin@example.com</p>
-              </div>
+            {hasClerk ? (
+              <>
+                <SignedIn>
+                  <UserNav />
+                </SignedIn>
+                <SignedOut>
+                  <Link href="/sign-in">
+                    <Button variant="outline" size="sm" className="w-full">
+                      Sign in
+                    </Button>
+                  </Link>
+                </SignedOut>
+              </>
+            ) : (
+              <UserNav />
             )}
           </div>
         </div>
