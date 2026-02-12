@@ -2,6 +2,8 @@
 
 import { useState, useEffect } from 'react';
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+
 interface Transaction {
   id: string;
   amount: number;
@@ -86,7 +88,7 @@ export function AgentComplianceMonitor() {
   const fetchMetrics = async () => {
     setMetricsLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/agent/compliance/metrics');
+      const response = await fetch(`${API_BASE}/agent/compliance/metrics`);
       if (response.ok) {
         const data = await response.json();
         setMetrics(data);
@@ -106,7 +108,7 @@ export function AgentComplianceMonitor() {
     setTestBatchLoading(true);
     setTestBatchResult(null);
     try {
-      const response = await fetch('http://localhost:8000/agent/compliance/test-batch?count=100', {
+      const response = await fetch(`${API_BASE}/agent/compliance/test-batch?count=100`, {
         method: 'POST'
       });
       if (response.ok) {
@@ -161,7 +163,7 @@ export function AgentComplianceMonitor() {
     
     try {
       const { label, ...txnData } = selectedTxn;
-      const response = await fetch('http://localhost:8000/agent/compliance/monitor', {
+      const response = await fetch(`${API_BASE}/agent/compliance/monitor`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(txnData)
