@@ -10,6 +10,8 @@ import {
   Shield,
   Bot,
   Brain,
+  BarChart3,
+  Plug,
   Sun,
   Moon,
   ChevronLeft,
@@ -27,6 +29,8 @@ const navItems = [
   { href: '/compliance', label: 'Compliance', icon: Shield },
   { href: '/agent', label: 'Agent', icon: Bot },
   { href: '/explainability', label: 'Explainability', icon: Brain },
+  { href: '/observability', label: 'Observability', icon: BarChart3 },
+  { href: '/connect', label: 'Connect', icon: Plug },
 ]
 
 export function Sidebar() {

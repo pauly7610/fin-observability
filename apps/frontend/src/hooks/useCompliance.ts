@@ -1,6 +1,5 @@
 'use client'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useWebSocket } from './useWebSocket'
 import apiClient, { validateResponse } from '@/lib/api-client'
 import { ComplianceLog, ComplianceStats, ComplianceLogSchema, ComplianceStatsSchema } from '@/types/api'
 import { z } from 'zod'
@@ -12,9 +11,6 @@ interface ComplianceResponse {
 
 export function useCompliance() {
   const queryClient = useQueryClient()
-  
-  // Real-time updates via WebSocket
-  const { data: wsData } = useWebSocket('/ws/compliance')
   
   // Fetch compliance logs
   const { data: logs, isLoading, isError, error } = useQuery<ComplianceLog[]>({

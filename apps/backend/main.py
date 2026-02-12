@@ -77,6 +77,7 @@ from apps.backend.routers import (
     anomaly,
     export_metadata,
     ops_metrics,
+    webhooks,
 )
 from apps.backend.scheduled_exports import schedule_exports
 from apps.backend.agentic_escalation import escalate_overdue_agent_actions
@@ -125,6 +126,39 @@ app.include_router(verification.router)
 app.include_router(auth.router)
 app.include_router(ops_metrics.router)
 app.include_router(export_metadata.router)
+app.include_router(webhooks.router)
+
+# Mount MCP server for AI agent integration
+try:
+    from apps.backend.mcp_server import mcp as mcp_instance, get_usage_stats
+    mcp_app = mcp_instance.streamable_http_app()
+    app.mount("/mcp", mcp_app)
+    logging.getLogger(__name__).info("MCP server mounted at /mcp")
+
+    @app.get("/mcp/stats", tags=["mcp"])
+    async def mcp_stats():
+        """Get MCP tool usage statistics."""
+        return get_usage_stats()
+
+    @app.get("/mcp/tools", tags=["mcp"])
+    async def mcp_tools():
+        """Get list of available MCP tools with descriptions."""
+        tools = mcp_instance._tool_manager.list_tools()
+        return {
+            "endpoint": "https://fin-observability-production.up.railway.app/mcp",
+            "transport": "streamable-http",
+            "tool_count": len(tools),
+            "tools": [
+                {
+                    "name": t.name,
+                    "description": t.description,
+                    "parameters": t.inputSchema if hasattr(t, 'inputSchema') else {},
+                }
+                for t in tools
+            ],
+        }
+except Exception as e:
+    logging.getLogger(__name__).warning(f"MCP server failed to mount: {e}")
 
 # Instrument FastAPI with OpenTelemetry
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
@@ -132,6 +166,50 @@ FastAPIInstrumentor.instrument_app(app)
 
 # Custom metrics middleware
 app.middleware("http")(metrics_middleware)
+
+# Demo mode: block write operations for unauthenticated (viewer) users
+DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
+
+# Safe POST endpoints that viewers can use (read-like operations)
+DEMO_SAFE_POSTS = {
+    "/agent/compliance/monitor",
+    "/agent/compliance/explain",
+    "/agent/compliance/explain-batch",
+    "/agent/compliance/test-batch",
+    "/agent/compliance/ensemble",
+}
+
+@app.middleware("http")
+async def demo_write_guard(request: Request, call_next):
+    """Block write operations for demo/viewer users to prevent data poisoning."""
+    if not DEMO_MODE:
+        return await call_next(request)
+
+    method = request.method.upper()
+    if method in ("GET", "HEAD", "OPTIONS"):
+        return await call_next(request)
+
+    # Allow safe POST endpoints (read-like ML inference) and MCP
+    path = request.url.path.rstrip("/")
+    if path in DEMO_SAFE_POSTS or path.startswith("/mcp"):
+        return await call_next(request)
+
+    # Check if user is authenticated (has auth headers, bearer token, or webhook key)
+    has_auth = (
+        request.headers.get("x-user-email")
+        or request.headers.get("authorization")
+        or request.headers.get("x-webhook-key")
+        or request.query_params.get("key")
+    )
+    if has_auth:
+        return await call_next(request)
+
+    # Unauthenticated write → block
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=403,
+        content={"detail": "Demo mode: write operations require authentication. Read-only access for visitors."},
+    )
 
 # Start scheduled exports
 schedule_exports()
@@ -164,6 +242,20 @@ def retraining_job():
 
 scheduler.add_job(retraining_job, "interval", hours=DRIFT_CHECK_HOURS, id="drift_check_retraining")
 scheduler.start()
+
+# Start pull ingestion background loop if sources are configured
+from apps.backend.routers.webhooks import pull_ingestion
+
+@app.on_event("startup")
+async def start_pull_ingestion():
+    if pull_ingestion._sources:
+        import asyncio
+        pull_ingestion._task = asyncio.create_task(pull_ingestion.run_loop())
+        logging.getLogger(__name__).info(f"Pull ingestion started with {len(pull_ingestion._sources)} source(s)")
+
+@app.on_event("shutdown")
+async def stop_pull_ingestion():
+    pull_ingestion.stop()
 
 # Limiter is now created below and imported by routers
 

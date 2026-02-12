@@ -10,14 +10,14 @@ export function AlertsPanel() {
 
   return (
     <div className="space-y-4">
-      {data.alerts.map((alert: { id: string; title: string; description: string; timestamp: string }) => (
+      {data.alerts.map((alert) => (
         <Card key={alert.id}>
           <CardHeader>
             <CardTitle>{alert.title}</CardTitle>
           </CardHeader>
           <CardContent>
             <div>{alert.description}</div>
-            <div className="text-xs text-muted-foreground">{alert.timestamp}</div>
+            <div className="text-xs text-muted-foreground">{alert.created_at}</div>
           </CardContent>
         </Card>
       ))}

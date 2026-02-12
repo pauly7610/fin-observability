@@ -12,7 +12,7 @@ router = APIRouter(prefix="/ops_metrics", tags=["ops_metrics"])
 async def get_mttr(
     days: int = 7,
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "analyst"])),
+    user=Depends(require_role(["admin", "analyst", "viewer"])),
 ):
     """
     Mean Time To Resolve (MTTR) for incidents resolved in the last N days.
@@ -40,7 +40,7 @@ async def get_mttr(
 async def agentic_action_rate(
     days: int = 7,
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "analyst"])),
+    user=Depends(require_role(["admin", "analyst", "viewer"])),
 ):
     """
     Count of agentic actions (timeline events) in the last N days.
@@ -62,7 +62,7 @@ async def sla_compliance(
     sla_hours: int = 4,
     days: int = 7,
     db: Session = Depends(get_db),
-    user=Depends(require_role(["admin", "analyst"])),
+    user=Depends(require_role(["admin", "analyst", "viewer"])),
 ):
     """
     SLA compliance: percent of incidents resolved within SLA in last N days.

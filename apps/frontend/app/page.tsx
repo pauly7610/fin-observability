@@ -4,6 +4,7 @@ import { MetricsOverview } from '@/components/MetricsOverview'
 import { ActivityFeed } from '@/components/ActivityFeed'
 import { AIStatusCard } from '@/components/AIStatusCard'
 import { DashboardCharts } from '@/components/DashboardCharts'
+import { MCPUsageCard } from '@/components/MCPUsageCard'
 
 export default function DashboardPage() {
   return (
@@ -16,9 +17,10 @@ export default function DashboardPage() {
       </div>
       <MetricsOverview />
       <DashboardCharts />
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <ActivityFeed />
         <AIStatusCard />
+        <MCPUsageCard />
       </div>
     </div>
   )

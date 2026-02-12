@@ -7,6 +7,7 @@ import os
 
 bearer_scheme = HTTPBearer(auto_error=False)
 AUTH_MODE = os.getenv("AUTH_MODE", "header")  # "jwt" or "header"
+DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
 
 
 def get_current_user(
@@ -61,6 +62,18 @@ def get_current_user(
         )
         virtual_user.scopes = []
         return virtual_user
+
+    # Demo mode: return a read-only viewer for unauthenticated requests
+    if DEMO_MODE:
+        demo_user = User(
+            id=0,
+            email="demo@fin-observability.app",
+            role="viewer",
+            full_name="Demo Viewer",
+            is_active=True,
+        )
+        demo_user.scopes = []
+        return demo_user
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

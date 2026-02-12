@@ -143,6 +143,7 @@ def test_triage_endpoint():
             "description": "Critical breach detected in trading system",
             "submitted_by": "test-user",
         },
+        headers=ADMIN_HEADERS,
     )
     assert resp.status_code == 200, f"Triage failed: {resp.text}"
     data = resp.json()
@@ -161,6 +162,7 @@ def test_triage_low_risk():
             "description": "Routine system check completed successfully",
             "submitted_by": "test-user",
         },
+        headers=ADMIN_HEADERS,
     )
     assert resp.status_code == 200, f"Triage failed: {resp.text}"
     data = resp.json()

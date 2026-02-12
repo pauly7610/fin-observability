@@ -99,6 +99,10 @@ ROLE_PERMISSIONS: Dict[Role, FrozenSet[Permission]] = {
         Permission.TRANSACTION_READ,
         Permission.SYSTEM_METRICS_READ,
         Permission.MODEL_READ,
+        Permission.AGENT_READ,
+        Permission.ANOMALY_READ,
+        Permission.EXPLAIN_READ,
+        Permission.AUDIT_READ,
     ]),
 }
 

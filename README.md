@@ -96,6 +96,39 @@ Every step in this chain — from the raw prediction to the human override — i
 - **Audit trail** — Every action, override, and escalation is logged with timestamps and actor identity
 - **Regulatory alignment** — SEC 17a-4 / FINRA 4511 rule engine, Basel III LCR calculations
 
+### MCP Server (Model Context Protocol)
+Connect any AI agent to the platform's compliance engine via the [Model Context Protocol](https://modelcontextprotocol.io):
+
+```
+Endpoint: https://fin-observability-production.up.railway.app/mcp
+Transport: Streamable HTTP
+```
+
+**Available tools:**
+
+| Tool | Description |
+|------|-------------|
+| `check_transaction_compliance` | Score a transaction — returns approve/review decision, anomaly score, risk factors, FINRA reference |
+| `explain_transaction` | SHAP-based feature importance showing WHY the model flagged or approved |
+| `batch_check_compliance` | Score up to 100 transactions in one call — ideal for ledger scanning |
+| `analyze_portfolio` | Aggregate risk assessment: risk distribution, top flagged items, concentration warnings |
+| `get_compliance_metrics` | Real-time approval rates, confidence scores, model info |
+| `list_incidents` | Browse incidents with status/severity filters |
+| `get_drift_status` | PSI + KS test results and retrain recommendations |
+| `get_model_leaderboard` | Model versions ranked by F1 score |
+
+**Connect from any MCP client** (Claude Desktop, Windsurf, Cursor, etc.):
+```json
+{
+  "mcpServers": {
+    "fin-observability": {
+      "url": "https://fin-observability-production.up.railway.app/mcp",
+      "transport": "streamable-http"
+    }
+  }
+}
+```
+
 ## Quick Start
 
 ```bash

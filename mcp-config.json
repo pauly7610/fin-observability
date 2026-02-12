@@ -1,0 +1,19 @@
+{
+  "mcpServers": {
+    "fin-observability": {
+      "url": "https://fin-observability-production.up.railway.app/mcp",
+      "transport": "streamable-http",
+      "description": "Financial AI Observability Platform — ML-powered compliance monitoring, anomaly detection, SHAP explainability, and drift detection for financial transactions.",
+      "tools": [
+        "check_transaction_compliance",
+        "explain_transaction",
+        "batch_check_compliance",
+        "analyze_portfolio",
+        "get_compliance_metrics",
+        "list_incidents",
+        "get_drift_status",
+        "get_model_leaderboard"
+      ]
+    }
+  }
+}

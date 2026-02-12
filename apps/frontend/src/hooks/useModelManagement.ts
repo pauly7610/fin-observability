@@ -65,8 +65,9 @@ export function useLeaderboard() {
     queryKey: ['leaderboard'],
     queryFn: async () => {
       const response = await apiClient.get('/agent/compliance/eval/leaderboard')
+      const wrapper = response.data as { leaderboard?: unknown[] }
       return validateResponse<LeaderboardEntry[]>(
-        response,
+        { data: wrapper.leaderboard ?? [] },
         z.array(LeaderboardEntrySchema)
       )
     },

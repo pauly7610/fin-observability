@@ -791,7 +791,7 @@ async def trigger_scheduled_retrain(
 
 @router.get("/compliance/retrain/status")
 async def get_retrain_status(
-    user=Depends(require_role(["admin", "compliance", "analyst"])),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """Get the status of the automated retraining pipeline."""
     from ..ml.retraining_pipeline import get_retraining_pipeline
@@ -802,7 +802,7 @@ async def get_retrain_status(
 
 @router.get("/compliance/drift/status")
 async def get_drift_status(
-    user=Depends(require_role(["admin", "compliance", "analyst"])),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """Get the current drift detector status, thresholds, and recent history."""
     from ..ml.drift_detector import get_drift_detector
@@ -925,7 +925,7 @@ async def ensemble_compliance_check(
 
 @router.get("/compliance/model/ensemble")
 async def get_ensemble_info(
-    user=Depends(require_role(["admin", "compliance", "analyst"])),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """
     Get ensemble model metadata including individual model scores and weights.
@@ -960,7 +960,7 @@ async def create_experiment(
 @router.get("/compliance/experiments")
 async def list_experiments(
     active_only: bool = True,
-    user=Depends(require_role(["admin", "compliance", "analyst"])),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """List all A/B test experiments."""
     from ..ml.ab_testing import get_ab_manager
@@ -972,7 +972,7 @@ async def list_experiments(
 @router.get("/compliance/experiments/{experiment_id}/results")
 async def get_experiment_results(
     experiment_id: str,
-    user=Depends(require_role(["admin", "compliance", "analyst"])),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """Get A/B test results with statistical significance testing."""
     from ..ml.ab_testing import get_ab_manager
@@ -1015,7 +1015,7 @@ async def submit_eval_batch(
 @router.get("/compliance/eval/results")
 async def get_eval_results(
     limit: int = 10,
-    user=Depends(require_role(["admin", "compliance", "analyst"])),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """Get recent evaluation results."""
     from ..services.evalai_service import get_evalai_service
@@ -1026,7 +1026,7 @@ async def get_eval_results(
 
 @router.get("/compliance/eval/leaderboard")
 async def get_eval_leaderboard(
-    user=Depends(require_role(["admin", "compliance", "analyst"])),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """Get leaderboard of model versions ranked by F1 score."""
     from ..services.evalai_service import get_evalai_service

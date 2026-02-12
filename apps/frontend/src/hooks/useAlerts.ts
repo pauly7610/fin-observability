@@ -1,5 +1,4 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { useWebSocket } from './useWebSocket'
 import apiClient, { validateResponse } from '@/lib/api-client'
 import { Incident, IncidentSchema } from '@/types/api'
 import { z } from 'zod'
@@ -10,9 +9,6 @@ interface AlertsResponse {
 
 export function useAlerts() {
   const queryClient = useQueryClient()
-  
-  // Real-time updates via WebSocket
-  const { data: wsData } = useWebSocket('/ws/incidents')
   
   // Fetch incidents with filtering
   const { data, isLoading, isError, error } = useQuery<AlertsResponse>({
@@ -65,7 +61,6 @@ export function useAlerts() {
   return {
     data: {
       alerts: data?.incidents || [],
-      ...wsData
     },
     isLoading,
     isError,

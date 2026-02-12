@@ -20,7 +20,7 @@ tracer = trace.get_tracer(__name__)
 router = APIRouter(prefix="/incidents", tags=["incidents", "export"])
 
 @router.get("/{incident_id}/agentic/suggestions")
-async def get_agentic_suggestions(incident_id: str, db: Session = Depends(get_db), user=Depends(require_role(["admin", "analyst", "compliance"]))):
+async def get_agentic_suggestions(incident_id: str, db: Session = Depends(get_db), user=Depends(require_role(["admin", "analyst", "compliance", "viewer"]))):
     from apps.backend.models import Incident as IncidentModel
     from apps.backend.services.agentic_service import get_agentic_suggestions
     incident = db.query(IncidentModel).filter(IncidentModel.incident_id == incident_id).first()
@@ -48,7 +48,7 @@ async def execute_agentic_action(incident_id: str, action_type: str, parameters:
     return {"task_id": task_id, "status": "running"}
 
 @router.get("/{incident_id}/agentic/status/{task_id}")
-async def get_agentic_action_status(incident_id: str, task_id: str, db: Session = Depends(get_db), user=Depends(require_role(["admin", "analyst", "compliance"]))):
+async def get_agentic_action_status(incident_id: str, task_id: str, db: Session = Depends(get_db), user=Depends(require_role(["admin", "analyst", "compliance", "viewer"]))):
     from apps.backend.services.agentic_service import get_agentic_action_status
     from apps.backend.services.incident_activity_service import record_incident_activity
     status = get_agentic_action_status(task_id)
