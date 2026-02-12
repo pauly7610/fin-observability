@@ -57,8 +57,8 @@ export function DashboardCharts() {
             <AreaChart data={requestData}>
               <defs>
                 <linearGradient id="requestGradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="5%" stopColor="hsl(var(--primary))" stopOpacity={0.3} />
-                  <stop offset="95%" stopColor="hsl(var(--primary))" stopOpacity={0} />
+                  <stop offset="5%" stopColor="#3b82f6" stopOpacity={0.4} />
+                  <stop offset="95%" stopColor="#3b82f6" stopOpacity={0.05} />
                 </linearGradient>
               </defs>
               <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
@@ -86,7 +86,7 @@ export function DashboardCharts() {
               <Area
                 type="monotone"
                 dataKey="requests"
-                stroke="hsl(var(--primary))"
+                stroke="#3b82f6"
                 fill="url(#requestGradient)"
                 strokeWidth={2}
               />
