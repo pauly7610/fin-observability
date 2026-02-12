@@ -2,138 +2,195 @@
 
 ## Overview
 
-This document outlines the architecture of the Financial AI Observability platform, designed as a monorepo with frontend, backend, and agentic AI components. The system targets financial services clients, focusing on real-time anomaly detection, compliance, and agentic AI-driven automation.
+The Financial AI Observability Platform is a monorepo combining a FastAPI backend (ML + agentic AI + MCP server), a Next.js frontend, and full OpenTelemetry instrumentation. It provides real-time anomaly detection, compliance automation, SHAP explainability, and external data ingestion — all traceable end-to-end via Grafana Cloud.
+
+> **Live:** https://fin-observability-production.up.railway.app
+> **Grafana:** https://pauly7610.grafana.net
 
 ---
 
 ## Monorepo Structure
 
 ```
-fin-ai-observability/
+fin-observability/
 ├── apps/
-│   ├── frontend/          # Next.js 14.2.1 (App Router)
-│   └── backend/           # FastAPI 0.111.0
-├── packages/
-│   ├── agentic-core/      # LangChain 0.2.0, OpenAI 1.25.0
-│   ├── shared-types/      # TypeScript 5.5.x
-│   └── telemetry/         # OpenTelemetry Python 1.25.0, JS 1.20.0
-├── docs/
-│   ├── ARCHITECTURE.md
-│   ├── TECHNICAL.md
-│   ├── DESIGN.md
-│   └── AGENTIC.md
-└── turbo.json             # Turborepo 1.15.0
+│   ├── backend/                  # FastAPI 0.111.0 + ML + MCP Server
+│   │   ├── ml/                   # Anomaly detector, drift detector, retraining
+│   │   ├── services/             # LLM-powered agent services
+│   │   ├── routers/              # API endpoints (incl. webhooks — SSE, outbound, pull)
+│   │   ├── mcp_server.py         # MCP server — 9 tools for AI agents
+│   │   ├── telemetry.py          # OpenTelemetry setup (tracing + metrics)
+│   │   ├── rbac.py               # Role-based access control (4 roles, 25 permissions)
+│   │   └── tests/                # 122 tests
+│   └── frontend/                 # Next.js 16 (App Router, React 19)
+│       ├── app/                  # Pages: dashboard, compliance, incidents, explainability, connect, observability, agent
+│       └── src/components/       # UI components (shadcn/ui + Recharts)
+├── otel-collector/               # OTel Collector config + Dockerfile
+├── grafana/dashboards/           # Importable 12-panel dashboard JSON
+├── infra/                        # Pulumi IaC for Railway
+├── docker-compose.yml            # Local dev: Postgres 16, Redis 7, OTel Collector, Backend
+└── .github/workflows/            # CI: pytest + Jest + Next.js build
+```
+
+---
+
+## System Architecture
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                          Railway Cloud                               │
+│                                                                      │
+│  ┌──────────────────┐    ┌──────────────┐    ┌──────────────────┐   │
+│  │   FastAPI Backend │───▶│  PostgreSQL   │    │  OTel Collector  │   │
+│  │                   │    │              │    │  (contrib 0.145) │   │
+│  │  - ML Ensemble    │    └──────────────┘    │       │          │   │
+│  │  - MCP Server     │                        │       ▼          │   │
+│  │  - Webhook System │                        │  Grafana Cloud   │   │
+│  │  - LLM Agents     │───────────────────────▶│  (Tempo + Prom)  │   │
+│  │  - OTel SDK 1.39  │   direct OTLP/HTTP     └──────────────────┘   │
+│  └──────────────────┘                                                │
+│         │                                                            │
+│  ┌──────────────┐                                                    │
+│  │    Redis      │  (metrics cache)                                  │
+│  └──────────────┘                                                    │
+└─────────────────────────────────────────────────────────────────────┘
+         │
+    ┌────▼─────┐
+    │ Next.js  │  Dashboard (App Router, React 19)
+    │ Frontend │  Pages: /, /compliance, /incidents, /explainability,
+    └──────────┘         /connect, /observability, /agent
 ```
 
 ---
 
 ## Data Flow
 
-```mermaid
-graph TD
-    A[Trader / Trading Ops Analyst] -->|Commands / Queries| B[Next.js Frontend]
-    B -->|API Calls| C[FastAPI Backend]
-    C -->|Invokes| D[Agentic Core (LangChain Agents)]
-    D -->|Reads/Writes| E[(PostgreSQL Database)]
-    D -->|Logs| F[SEC Audit Logs / Compliance Storage]
-    C -->|Telemetry Data| G[OpenTelemetry Collector]
-    G -->|Streams| H[Geneos / ITRS Analytics Platform]
+### Transaction Scoring (all ingestion paths)
+
+```
+External Systems (Plaid, Stripe, bank feeds)
+AI Agents (via MCP ingest_transactions)
+Scheduled Pull (configured external APIs)
+        │
+        ▼
+┌─────────────────────────────────────────┐
+│  Ingestion Layer                         │
+│  - POST /webhooks/transactions           │
+│  - MCP ingest_transactions tool          │
+│  - Scheduled pull job                    │
+└──────────────┬──────────────────────────┘
+               │
+               ▼
+┌─────────────────────────────────────────┐
+│  score_and_store_transaction()           │
+│  - Isolation Forest + PCA-Autoencoder   │
+│  - Decision: approve / manual_review    │
+│  - Store in PostgreSQL                   │
+│  - Publish to SSE EventBus              │
+│  - POST to outbound callbacks if flagged│
+│  - OTel span with all attributes        │
+└──────────────┬──────────────────────────┘
+               │
+        ┌──────┼──────┐
+        ▼      ▼      ▼
+   Database  SSE    Outbound
+   (stored)  Stream  Callbacks
+             (live)  (if flagged,
+                      3x retry + DLQ)
+```
+
+### Agentic Workflow
+
+```
+Incident → LLM Triage → Agent Recommendation → Human Approval → Audit Log
+    │           │              │                     │              │
+    └───────────┴──────────────┴─────────────────────┴──────────────┘
+                              OpenTelemetry Traces → Grafana
 ```
 
 ---
 
-## Key Architectural Components & Versions
+## Key Components & Versions
 
-### Frontend (Next.js)
+### Frontend
+- **Next.js:** 16.1.6 (App Router)
+- **React:** 19
+- **TailwindCSS** + **shadcn/ui** (components)
+- **Recharts** (charts, SHAP waterfall)
+- **TanStack Query** (data fetching)
+- **Lucide** (icons)
 
-- **Next.js:** 14.2.1
-- **React:** 18.3.0
-- **TypeScript:** 5.5.x
-- **Zustand:** 4.5.x (state management)
-- **ShadCN/UI:** 1.8.x (UI components)
-- **SWR:** 2.2.x (data fetching)
-- **Node.js:** 20.x (runtime)
-
-### Backend (FastAPI)
-
+### Backend
 - **FastAPI:** 0.111.0
-- **Python:** 3.12.x
-- **Uvicorn:** 0.30.x (ASGI server)
-- **SQLAlchemy:** 2.0.x
-- **Pydantic:** 2.7.x
-- **PostgreSQL:** 15.x
-- **Celery:** 5.4.x (background tasks, optional)
-- **OpenTelemetry SDK (Python):** 1.25.0
-- **aiokafka:** 0.10.x (Kafka stubs, optional)
-- **PyJWT:** 2.8.x (JWT authentication)
+- **Python:** 3.12
+- **SQLAlchemy:** 2.0 + Alembic
+- **PostgreSQL:** 16 (production), SQLite (tests)
+- **Redis:** 7 (metrics cache)
+- **APScheduler:** 3.10.4 (background jobs)
+- **httpx:** 0.27+ (async HTTP for outbound webhooks + pull ingestion)
 
-### Agentic Core (LangChain, LLMs, Tools)
+### ML Pipeline
+- **scikit-learn:** Isolation Forest
+- **ONNX Runtime:** PCA-Autoencoder inference
+- **SHAP:** TreeExplainer (per-prediction feature importance)
+- **Drift detection:** PSI + KS tests (sliding window)
+- **A/B testing:** Chi-squared significance, hash-based routing
 
-- **LangChain:** 0.2.0
-- **OpenAI Python SDK:** 1.25.0
-- **tiktoken:** 0.7.x (tokenization)
-- **AnyScale/Anthropic SDKs:** (optional, for LLM variety)
-- **Prefect:** 2.18.x (optional, for workflow orchestration)
+### MCP Server
+- **mcp:** 1.2+ (Model Context Protocol)
+- 9 tools, input validation, OTel tracing, rate limiting (60/min)
+- Mounted at `/mcp` (Streamable HTTP)
 
-### Telemetry
+### Agentic AI
+- **LangChain:** 0.3+ (core, openai, anthropic, google-genai)
+- Pluggable LLM providers (OpenAI, Anthropic, Google Gemini)
 
-- **OpenTelemetry Python:** 1.25.0
-- **OpenTelemetry JS:** 1.20.0
-- **Prometheus Exporter:** 0.24.x (optional)
+### Observability
+- **OpenTelemetry SDK:** 1.39.1 (Python)
+- **OTel Collector:** contrib 0.145.0 (Railway)
+- **Grafana Cloud:** Tempo (traces) + Prometheus (metrics)
+- Direct OTLP/HTTP export (bypasses collector when Grafana creds set)
 
-### Database
-
-- **PostgreSQL:** 15.x
-- **pgvector:** 0.7.x (optional, for vector search/embedding)
-
-### Monorepo Tooling
-
-- **Turborepo:** 1.15.0
-- **pnpm:** 9.1.x
-- **Docker:** 25.x (for containerization)
+### Security
+- **RBAC:** 4 roles (admin/compliance/analyst/viewer), 25 permissions
+- **Webhook auth:** HMAC constant-time comparison
+- **JWT:** python-jose + passlib + bcrypt
+- **Export integrity:** Hash chain + digital signatures
 
 ---
 
 ## Design Decisions
 
-- **Monorepo with Turborepo 1.15.0:** Unified dependency management and streamlined CI/CD
-- **LangChain 0.2.0:** Modern, stable agentic AI orchestration
-- **OpenTelemetry 1.25.0 (Python), 1.20.0 (JS):** Industry standard, fully compatible with ITRS Geneos
-- **Human-in-the-loop:** Ensures compliance and control over automated actions
-- **Mocked Streaming (aiokafka 0.10.x):** Keeps MVP scope tight, ready for real Kafka integration
+- **Shared scoring pipeline** — `score_and_store_transaction()` is the single path for all ingestion (webhook, MCP, pull), ensuring consistent scoring and storage
+- **SSE over WebSocket for streaming** — Simpler, HTTP-native, works through proxies, auto-reconnect built into EventSource API
+- **Outbound retry + DLQ** — 3 attempts with exponential backoff; failed deliveries preserved in dead letter queue for inspection
+- **MCP as primary AI integration** — Standardized protocol means any MCP-compatible agent (Windsurf, Claude, Cursor) connects without custom code
+- **Drift-triggered retraining** — No blind cron; PSI + KS tests determine when the model actually needs retraining
+- **Demo mode write guard** — Production deployment is read-only for unauthenticated users; webhook API key bypasses this
 
 ---
 
-## Security and Compliance
+## Environment Variables
 
-- **JWT authentication:** PyJWT 2.8.x
-- **RBAC:** Custom middleware or open-source package
-- **Audit trails:** PostgreSQL 15.x, with schema for SEC 17a-4 and FINRA 4511 compliance
-
----
-
-## Scalability and Extensibility
-
-- Modular backend routers (FastAPI 0.111.0)
-- Agentic core (LangChain 0.2.0) designed for new tools/workflows
-- Frontend (Next.js 14.2.1) supports real-time updates and extensible UI
-
----
-
-## Future Enhancements
-
-- Full Kafka integration (Kafka 3.x, aiokafka 0.10.x)
-- Real-time WebSocket updates (Socket.IO 4.7.x, or Next.js built-in)
-- Advanced explainability (SHAP 0.45.x, optional)
-- ServiceNow/Terraform integration for automated remediation
+| Variable | Purpose |
+|----------|---------|
+| `DATABASE_URL` | PostgreSQL connection string |
+| `WEBHOOK_API_KEY` | Auth key for webhook endpoints |
+| `WEBHOOK_CALLBACK_URLS` | Comma-separated outbound callback URLs |
+| `PULL_INGESTION_SOURCES` | JSON array of pull ingestion source configs |
+| `DRIFT_CHECK_HOURS` | Drift check interval (default: 6) |
+| `GRAFANA_CLOUD_INSTANCE_ID` | Grafana Cloud instance ID |
+| `GRAFANA_CLOUD_API_TOKEN` | Grafana Cloud API token |
+| `OTEL_SERVICE_NAME` | OTel service name (default: fin-observability) |
+| `JWT_SECRET_KEY` | JWT signing key |
+| `CORS_ORIGINS` | Allowed CORS origins (comma-separated) |
 
 ---
 
-## Contact and Contribution
+## References
 
-- Maintainers: Product Manager / Engineering Lead
-- Contribution guidelines in CONTRIBUTING.md
-
----
-
-[See PRD.md for detailed feature demonstrations and business value articulation.]
+- [README.md](../../README.md) — Quick start, demo walkthrough
+- [apps/backend/API.md](../backend/API.md) — Full endpoint reference
+- [apps/backend/ARCHITECTURE.md](../backend/ARCHITECTURE.md) — Backend-specific architecture
+- [DESIGN.md](./DESIGN.md) — UI design vision
+- [PRD.md](./PRD.md) — Product requirements and business case
