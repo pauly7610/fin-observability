@@ -96,6 +96,18 @@ def upload_export_s3(attachment_path):
         return False
 
 
+def hash_chain_csv_from_string(content: str):
+    """Hash chain for in-memory CSV content. Returns last hash (no .hash file)."""
+    hashes = []
+    prev_hash = ""
+    for line in content.splitlines(keepends=True):
+        data = (prev_hash + line).encode()
+        h = hashlib.sha256(data).hexdigest()
+        hashes.append(h)
+        prev_hash = h
+    return hashes[-1] if hashes else None
+
+
 def hash_chain_csv(filename):
     hashes = []
     with open(filename, "r", encoding="utf-8") as f:
@@ -142,7 +154,6 @@ def export_compliance_logs():
                 for log in logs:
                     writer.writerow({fn: getattr(log, fn) for fn in fieldnames})
             span.set_attribute("export.record_count", len(logs))
-            session.close()
             last_hash = hash_chain_csv(filename)
             span.set_attribute("export.hash", last_hash)
             siem.send_syslog_event(
@@ -182,6 +193,21 @@ def export_compliance_logs():
             )
             session.add(export_meta)
             session.commit()
+            session.refresh(export_meta)
+            try:
+                from apps.backend.services.audit_trail_service import record_audit_event
+                record_audit_event(
+                    db=session,
+                    event_type="export_initiated",
+                    entity_type="export",
+                    entity_id=str(export_meta.id),
+                    actor_type="system",
+                    summary=f"Scheduled export initiated: compliance_log",
+                    details={"export_type": "compliance_log", "file_path": filename},
+                    regulation_tags=["SEC_17a4"],
+                )
+            except Exception:
+                pass
 
             # Increment export job metric
             from apps.backend.telemetry import export_job_counter
@@ -197,8 +223,9 @@ def export_compliance_logs():
             from opentelemetry.trace.status import Status, StatusCode
 
             span.set_status(Status(StatusCode.ERROR, str(e)))
-            session.close()
             raise
+        finally:
+            session.close()
 
 
 def export_agent_actions():
@@ -218,7 +245,6 @@ def export_agent_actions():
                 for action in actions:
                     writer.writerow({fn: getattr(action, fn) for fn in fieldnames})
             span.set_attribute("export.record_count", len(actions))
-            session.close()
             last_hash = hash_chain_csv(filename)
             span.set_attribute("export.hash", last_hash)
             siem.send_syslog_event(
@@ -258,6 +284,21 @@ def export_agent_actions():
             )
             session.add(export_meta)
             session.commit()
+            session.refresh(export_meta)
+            try:
+                from apps.backend.services.audit_trail_service import record_audit_event
+                record_audit_event(
+                    db=session,
+                    event_type="export_initiated",
+                    entity_type="export",
+                    entity_id=str(export_meta.id),
+                    actor_type="system",
+                    summary=f"Scheduled export initiated: agent_action",
+                    details={"export_type": "agent_action", "file_path": filename},
+                    regulation_tags=["SEC_17a4"],
+                )
+            except Exception:
+                pass
 
             # Increment export job metric
             from apps.backend.telemetry import export_job_counter
@@ -273,8 +314,9 @@ def export_agent_actions():
             from opentelemetry.trace.status import Status, StatusCode
 
             span.set_status(Status(StatusCode.ERROR, str(e)))
-            session.close()
             raise
+        finally:
+            session.close()
 
 
 def schedule_exports():

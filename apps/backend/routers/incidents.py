@@ -559,13 +559,12 @@ async def export_incidents(request: Request,
                     host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
                     port=int(os.getenv("SIEM_SYSLOG_PORT", "514")),
                     extra={"count": len(incidents), "user": str(getattr(user, "id", None) or user)},
-                    delivered_to=None,
-                    delivery_method="manual",
-                    delivery_status="delivered",
-                    verification_status="unverified",
                 )
-                session.add(export_meta)
-                session.commit()
+                return StreamingResponse(
+                    iter([output.getvalue()]),
+                    media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=incidents.csv"},
+                )
         except Exception as e:
             span.record_exception(e)
             from opentelemetry.trace.status import Status, StatusCode

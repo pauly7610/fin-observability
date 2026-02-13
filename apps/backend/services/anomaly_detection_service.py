@@ -3,6 +3,8 @@ from sklearn.ensemble import IsolationForest
 from typing import List, Dict, Any
 import logging
 
+from apps.backend.models import Transaction, SystemMetric
+
 logger = logging.getLogger(__name__)
 
 

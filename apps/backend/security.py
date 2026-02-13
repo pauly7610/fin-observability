@@ -7,7 +7,7 @@ import os
 
 bearer_scheme = HTTPBearer(auto_error=False)
 AUTH_MODE = os.getenv("AUTH_MODE", "header")  # "jwt" or "header"
-DEMO_MODE = os.getenv("DEMO_MODE", "true").lower() == "true"
+TRUST_HEADER_AUTH = os.getenv("TRUST_HEADER_AUTH", "false").lower() == "true"
 
 
 def get_current_user(
@@ -22,8 +22,9 @@ def get_current_user(
     """
     # Try JWT first if credentials are provided
     if credentials and credentials.credentials:
+        token = credentials.credentials
         from .routers.auth import decode_access_token
-        payload = decode_access_token(credentials.credentials)
+        payload = decode_access_token(token)
         if payload:
             email = payload.get("sub")
             user = db.query(User).filter(User.email == email).first()
@@ -32,12 +33,50 @@ def get_current_user(
                 if hasattr(user, "meta") and user.meta and isinstance(user.meta, dict):
                     user.scopes = user.meta.get("scopes", [])
                 return user
+
+        # Backend JWT failed; try Clerk JWT if CLERK_JWKS_URL is configured
+        clerk_jwks_url = os.getenv("CLERK_JWKS_URL", "")
+        if clerk_jwks_url:
+            try:
+                import jwt
+                from jwt import PyJWKClient
+                jwks_client = PyJWKClient(clerk_jwks_url)
+                signing_key = jwks_client.get_signing_key_from_jwt(token)
+                clerk_payload = jwt.decode(
+                    token,
+                    signing_key.key,
+                    algorithms=["RS256"],
+                    options={"verify_exp": True, "verify_nbf": True},
+                )
+                # Clerk sub is user ID (user_xxx); use primaryEmail from session token if available
+                email = clerk_payload.get("primary_email") or clerk_payload.get("email")
+                if not email and clerk_payload.get("sub", "").startswith("user_"):
+                    # Try to get email from first email address in session
+                    email = (
+                        clerk_payload.get("email_addresses", [{}])[0].get("email_address")
+                        if clerk_payload.get("email_addresses")
+                        else None
+                    )
+                if email:
+                    user = db.query(User).filter(User.email == email).first()
+                    if user and user.is_active:
+                        user.scopes = []
+                        if hasattr(user, "meta") and user.meta and isinstance(user.meta, dict):
+                            user.scopes = user.meta.get("scopes", [])
+                        return user
+                    raise HTTPException(
+                        status_code=status.HTTP_403_FORBIDDEN,
+                        detail="User not provisioned. Contact admin.",
+                    )
+            except Exception:
+                pass
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid or expired token"
         )
 
-    # Fall back to header-based auth
-    if x_user_email and x_user_role:
+    # Fall back to header-based auth (only when TRUST_HEADER_AUTH=true; spoofable in production)
+    if TRUST_HEADER_AUTH and x_user_email and x_user_role:
         user = db.query(User).filter(User.email == x_user_email).first()
         if user:
             if not user.is_active:
@@ -62,18 +101,6 @@ def get_current_user(
         )
         virtual_user.scopes = []
         return virtual_user
-
-    # Demo mode: return a read-only viewer for unauthenticated requests
-    if DEMO_MODE:
-        demo_user = User(
-            id=0,
-            email="demo@fin-observability.app",
-            role="viewer",
-            full_name="Demo Viewer",
-            is_active=True,
-        )
-        demo_user.scopes = []
-        return demo_user
 
     raise HTTPException(
         status_code=status.HTTP_401_UNAUTHORIZED,

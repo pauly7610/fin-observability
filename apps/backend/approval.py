@@ -115,4 +115,19 @@ def require_approval(db, resource_type, resource_id, user_id, reason=None, meta=
     db.add(new_req)
     db.commit()
     db.refresh(new_req)
+    try:
+        from .services.audit_trail_service import record_audit_event
+        record_audit_event(
+            db=db,
+            event_type="approval_requested",
+            entity_type="approval",
+            entity_id=str(new_req.id),
+            actor_type="human",
+            actor_id=user_id,
+            summary=f"Approval requested for {resource_type}/{resource_id}",
+            details={"reason": reason},
+            regulation_tags=["FINRA_4511"],
+        )
+    except Exception:
+        pass
     return False, new_req

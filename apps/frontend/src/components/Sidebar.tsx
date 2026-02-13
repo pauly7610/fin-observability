@@ -17,6 +17,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Activity,
+  Download,
+  FileText,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from '@/components/ui/tooltip'
@@ -35,8 +37,10 @@ const navItems = [
   { href: '/incidents', label: 'Incidents', icon: AlertTriangle },
   { href: '/compliance', label: 'Compliance', icon: Shield },
   { href: '/agent', label: 'Agent', icon: Bot },
+  { href: '/audit', label: 'Audit Trail', icon: FileText },
   { href: '/explainability', label: 'Explainability', icon: Brain },
   { href: '/observability', label: 'Observability', icon: BarChart3 },
+  { href: '/export', label: 'Export', icon: Download },
   { href: '/connect', label: 'Connect', icon: Plug },
 ]
 

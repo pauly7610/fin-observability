@@ -62,6 +62,22 @@ def create_export_metadata(
     db.add(new_export)
     db.commit()
     db.refresh(new_export)
+    try:
+        from ..services.audit_trail_service import record_audit_event
+        user_id = getattr(user, "id", None) if hasattr(user, "id") else None
+        record_audit_event(
+            db=db,
+            event_type="export_initiated",
+            entity_type="export",
+            entity_id=str(new_export.id),
+            actor_type="human",
+            actor_id=user_id,
+            summary=f"Export initiated: {export.export_type}",
+            details={"export_type": export.export_type},
+            regulation_tags=["SEC_17a4"],
+        )
+    except Exception:
+        pass
     return new_export
 
 
@@ -99,6 +115,23 @@ def update_export_metadata(
         export.verified_at = verified_at
     db.commit()
     db.refresh(export)
+    if delivery_status == "delivered":
+        try:
+            from ..services.audit_trail_service import record_audit_event
+            user_id = getattr(user, "id", None) if hasattr(user, "id") else None
+            record_audit_event(
+                db=db,
+                event_type="export_delivered",
+                entity_type="export",
+                entity_id=str(export.id),
+                actor_type="human",
+                actor_id=user_id,
+                summary=f"Export delivered: {export.export_type}",
+                details={"export_type": export.export_type, "delivery_status": delivery_status},
+                regulation_tags=["SEC_17a4"],
+            )
+        except Exception:
+            pass
     return export
 
 

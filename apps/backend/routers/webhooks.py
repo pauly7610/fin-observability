@@ -35,13 +35,12 @@ import uuid
 from ..database import get_db, SessionLocal
 from ..models import Transaction as TransactionModel
 from ..ml.anomaly_detector import get_detector
+from ..pii_utils import hash_pii_in_dict
+from ..key_utils import get_or_generate_key
 
 router = APIRouter(prefix="/webhooks", tags=["webhooks"])
 logger = logging.getLogger(__name__)
 tracer = trace.get_tracer("webhooks")
-
-# Webhook API key from environment (set on Railway)
-WEBHOOK_API_KEY = os.getenv("WEBHOOK_API_KEY", "")
 
 
 # ---------------------------------------------------------------------------
@@ -357,16 +356,14 @@ pull_ingestion = PullIngestionConfig()
 def _verify_webhook_key(
     x_webhook_key: Optional[str] = Header(None),
     key: Optional[str] = None,
+    db: Session = Depends(get_db),
 ):
-    """Verify webhook caller via API key header or query param."""
+    """Verify webhook caller via API key. Key is from env or auto-generated (persisted, no dups)."""
+    api_key = get_or_generate_key(db, "webhook_api_key", "WEBHOOK_API_KEY")
     provided = x_webhook_key or key
-    if not WEBHOOK_API_KEY:
-        # No key configured — allow in demo mode but log warning
-        logger.warning("WEBHOOK_API_KEY not set — webhook auth disabled")
-        return True
     if not provided:
         raise HTTPException(status_code=401, detail="Missing webhook API key. Provide X-Webhook-Key header or ?key= param.")
-    if not hmac.compare_digest(provided, WEBHOOK_API_KEY):
+    if not hmac.compare_digest(provided, api_key):
         raise HTTPException(status_code=403, detail="Invalid webhook API key.")
     return True
 
@@ -428,6 +425,10 @@ def score_and_store_transaction(
         span.set_attribute("transaction.anomaly_score", score)
         span.set_attribute("transaction.decision", decision)
 
+    # Hash PII in meta before storage
+    raw_meta = txn_data.get("meta") or {"source": source}
+    meta, pii_risk = hash_pii_in_dict(raw_meta)
+
     # Store in DB
     existing = db.query(TransactionModel).filter(TransactionModel.transaction_id == txn_id).first()
     if existing:
@@ -440,8 +441,10 @@ def score_and_store_transaction(
             "model_version": details.get("model_version"),
             "source": source,
             "features": details.get("features", {}),
+            "pii_risk": pii_risk,
         }
         existing.status = "completed"
+        existing.meta = meta
     else:
         # Create new
         txn = TransactionModel(
@@ -458,12 +461,28 @@ def score_and_store_transaction(
                 "model_version": details.get("model_version"),
                 "source": source,
                 "features": details.get("features", {}),
+                "pii_risk": pii_risk,
             },
-            meta=txn_data.get("meta") or {"source": source},
+            meta=meta,
         )
         db.add(txn)
 
     db.commit()
+
+    try:
+        from ..services.audit_trail_service import record_audit_event
+        record_audit_event(
+            db=db,
+            event_type="transaction_scored",
+            entity_type="transaction",
+            entity_id=txn_id,
+            actor_type="agent",
+            summary=f"Transaction {txn_id} scored: {decision}",
+            details={"decision": decision, "anomaly_score": score, "risk_factors": risk_factors},
+            regulation_tags=["FINRA_4511", "SEC_17a4"],
+        )
+    except Exception:
+        pass
 
     return {
         "transaction_id": txn_id,
@@ -474,6 +493,7 @@ def score_and_store_transaction(
         "model_version": details.get("model_version", "unknown"),
         "stored": True,
         "source": source,
+        "pii_risk": pii_risk,
     }
 
 

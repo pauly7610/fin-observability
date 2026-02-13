@@ -89,7 +89,14 @@ async def register(
 ):
     """
     Register a new user. Role must be a valid RBAC role.
+    Disabled by default (REGISTER_ENABLED=false); use Clerk or SSO for signup.
     """
+    REGISTER_ENABLED = os.getenv("REGISTER_ENABLED", "false").lower() == "true"
+    if not REGISTER_ENABLED:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Registration disabled. Use Clerk or SSO.",
+        )
     from ..rbac import VALID_ROLES
 
     if role not in VALID_ROLES:

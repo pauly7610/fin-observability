@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
 
 export function useMockScenarios() {
   return useQuery({
     queryKey: ['mock_scenarios'],
     queryFn: async () => {
-      const res = await fetch('/api/mock_scenarios');
-      if (!res.ok) throw new Error('Failed to fetch mock scenarios');
-      return res.json();
+      const res = await apiClient.get('/api/mock_scenarios');
+      return res.data;
     },
   });
 } 

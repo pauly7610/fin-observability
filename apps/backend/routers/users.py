@@ -121,6 +121,22 @@ async def export_users(
                     )
                     session.add(export_meta)
                     session.commit()
+                    session.refresh(export_meta)
+                    try:
+                        from ..services.audit_trail_service import record_audit_event
+                        record_audit_event(
+                            db=session,
+                            event_type="export_initiated",
+                            entity_type="export",
+                            entity_id=str(export_meta.id),
+                            actor_type="human",
+                            actor_id=user_id,
+                            summary="User export initiated",
+                            details={"export_type": "user"},
+                            regulation_tags=["SEC_17a4"],
+                        )
+                    except Exception:
+                        pass
                 finally:
                     session.close()
                 return [u.__dict__ for u in users]

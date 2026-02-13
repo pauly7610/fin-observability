@@ -24,17 +24,17 @@ AI agents connect via MCP at `/mcp` (Streamable HTTP transport).
 
 ### MCP Tools (9 total)
 
-| Tool | Description |
-|------|-------------|
-| `check_transaction_compliance` | Score a transaction — approve/review decision, anomaly score, risk factors |
-| `explain_transaction` | SHAP-based feature importance for a prediction |
-| `batch_check_compliance` | Score up to 10,000 transactions in one call |
-| `analyze_portfolio` | Aggregate risk: distribution, top flagged, concentration warnings (up to 10K) |
-| `ingest_transactions` | Push up to 10,000 transactions for scoring + storage |
-| `get_compliance_metrics` | Real-time approval rates, confidence scores, model info |
-| `list_incidents` | Browse incidents with status/severity filters |
-| `get_drift_status` | PSI + KS test results and retrain recommendations |
-| `get_model_leaderboard` | Model versions ranked by F1 score |
+| Tool                           | Description                                                                   |
+| ------------------------------ | ----------------------------------------------------------------------------- |
+| `check_transaction_compliance` | Score a transaction — approve/review decision, anomaly score, risk factors    |
+| `explain_transaction`          | SHAP-based feature importance for a prediction                                |
+| `batch_check_compliance`       | Score up to 10,000 transactions in one call                                   |
+| `analyze_portfolio`            | Aggregate risk: distribution, top flagged, concentration warnings (up to 10K) |
+| `ingest_transactions`          | Push up to 10,000 transactions for scoring + storage                          |
+| `get_compliance_metrics`       | Real-time approval rates, confidence scores, model info                       |
+| `list_incidents`               | Browse incidents with status/severity filters                                 |
+| `get_drift_status`             | PSI + KS test results and retrain recommendations                             |
+| `get_model_leaderboard`        | Model versions ranked by F1 score                                             |
 
 ---
 
@@ -101,6 +101,7 @@ All webhook endpoints are prefixed with `/webhooks`. Auth via `X-Webhook-Key` he
 ## ML & Compliance Endpoints
 
 ### Compliance Monitoring
+
 - **POST `/agent/compliance/monitor`** — Score a transaction via the ML ensemble.
 - **GET `/agent/compliance/status`** — Current compliance engine status.
 - **GET `/agent/compliance/metrics`** — Approval rates, confidence scores, model info.
@@ -108,12 +109,14 @@ All webhook endpoints are prefixed with `/webhooks`. Auth via `X-Webhook-Key` he
 - **POST `/agent/compliance/ensemble`** — Ensemble scoring (IF + Autoencoder).
 
 ### Drift Detection & Retraining
+
 - **GET `/agent/compliance/drift/status`** — PSI + KS test results.
 - **POST `/agent/compliance/drift/check`** — Trigger a drift check.
 - **POST `/agent/compliance/retrain/drift`** — Trigger drift-based retraining.
 - **GET `/agent/compliance/retrain/status`** — Retraining pipeline status.
 
 ### Experiments & Evaluation
+
 - **GET `/agent/compliance/experiments`** — A/B test results.
 - **GET `/agent/compliance/eval/results`** — Evaluation results.
 - **GET `/agent/compliance/eval/leaderboard`** — Model leaderboard by F1 score.
@@ -128,6 +131,7 @@ All webhook endpoints are prefixed with `/webhooks`. Auth via `X-Webhook-Key` he
 - **POST `/agent/audit_summary`** — Summarize audit logs.
 
 ### Human Oversight
+
 - **POST `/agent/actions/{action_id}/approve`** — Approve a pending agent action.
 - **POST `/agent/actions/{action_id}/reject`** — Reject a pending agent action.
 
@@ -137,6 +141,18 @@ All webhook endpoints are prefixed with `/webhooks`. Auth via `X-Webhook-Key` he
 
 - **GET `/approval/?status=pending|approved|rejected`** — List approval requests.
 - **POST `/approval/{approval_id}/decision`** — Submit approval/rejection decision.
+
+---
+
+## Audit Trail (Agentic)
+
+- **GET `/api/audit_trail`** — Unified audit trail. Params: `entity_type`, `event_type`, `regulation_tag`, `start`, `end`, `limit`.
+- **GET `/api/audit_trail/export`** — Export audit trail as CSV or JSON. Params: `format`, `entity_type`, `event_type`, `start`, `end`, `limit`. Response includes `X-Content-SHA256` for WORM verification.
+- **GET `/api/mock_audit_trail`** — Deprecated; use `/api/audit_trail`.
+
+**PII sanitization:** `details` and `meta` are hashed before storage when `PII_HASH_ENABLED=true`. Detection uses field names plus value-based regex (email, SSN, credit card, phone, IP). Allowlisted fields (amount, id, transaction_id, etc.) are never hashed.
+
+**Retention:** 7 years (configurable via `AUDIT_RETENTION_YEARS`). Run `python scripts/archive_audit_trail.py` to delete entries older than retention; use `--dry-run` to report count only.
 
 ---
 
@@ -153,8 +169,7 @@ All webhook endpoints are prefixed with `/webhooks`. Auth via `X-Webhook-Key` he
 
 ## Incidents & Ops
 
-- **GET `/incidents/`** — List incidents.
-- **POST `/incidents/`** — Create a new incident.
+- **GET `/incidents/`** — List incidents. (Incidents are created via Kafka consumer and seed data, not via POST.)
 - **POST `/incidents/{incident_id}/assign`** — Assign incident to user.
 - **POST `/incidents/{incident_id}/escalate`** — Escalate incident.
 - **POST `/incidents/{incident_id}/comment`** — Add comment to incident.

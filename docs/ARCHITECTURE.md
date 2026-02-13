@@ -179,6 +179,9 @@ Incident → LLM Triage → Agent Recommendation → Human Approval → Audit Lo
 | `WEBHOOK_CALLBACK_URLS` | Comma-separated outbound callback URLs |
 | `PULL_INGESTION_SOURCES` | JSON array of pull ingestion source configs |
 | `DRIFT_CHECK_HOURS` | Drift check interval (default: 6) |
+| `PII_HASH_SALT` | Salt for deterministic PII hashing in audit trail |
+| `PII_HASH_ENABLED` | Enable PII sanitization (default: true) |
+| `AUDIT_RETENTION_YEARS` | Years to retain audit entries (default: 7, SEC 17a-4) |
 | `GRAFANA_CLOUD_INSTANCE_ID` | Grafana Cloud instance ID |
 | `GRAFANA_CLOUD_API_TOKEN` | Grafana Cloud API token |
 | `OTEL_SERVICE_NAME` | OTel service name (default: fin-observability) |

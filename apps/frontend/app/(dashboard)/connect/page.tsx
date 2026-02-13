@@ -145,13 +145,11 @@ export default function ConnectPage() {
     setTryLoading(true)
     setTryResult(null)
     try {
-      const res = await apiClient.post('/agent/compliance/monitor', {
+      const res = await apiClient.post('/api/compliance/check', {
         transaction_id: `try-${Date.now()}`,
         amount: parseFloat(tryAmount),
-        type: tryType,
+        transaction_type: tryType,
         timestamp: new Date().toISOString(),
-        source_account: 'DEMO-001',
-        destination_account: 'DEMO-002',
       })
       setTryResult(res.data)
     } catch (err: unknown) {
@@ -217,6 +215,9 @@ export default function ConnectPage() {
         <h2 className="text-lg font-semibold tracking-tight">Quick Connect</h2>
         <p className="text-sm text-muted-foreground">
           Copy the config below into your MCP client settings. Works with any client that supports Streamable HTTP transport.
+        </p>
+        <p className="text-xs text-muted-foreground">
+          If <code className="bg-muted px-1 rounded">MCP_API_KEY</code> is set on the server, include it as <code className="bg-muted px-1 rounded">X-MCP-API-Key</code> header or <code className="bg-muted px-1 rounded">Authorization: Bearer &lt;key&gt;</code> in your client config.
         </p>
 
         <Tabs value={selectedClient} onValueChange={setSelectedClient}>
@@ -374,19 +375,19 @@ export default function ConnectPage() {
                   <div className="flex items-center gap-2 mb-2">
                     <Terminal className="h-3.5 w-3.5 text-muted-foreground" />
                     <span className="text-xs font-medium">Response</span>
-                    {'decision' in tryResult && (
+                    {Boolean(tryResult.decision ?? tryResult.action) && (
                       <Badge
                         variant="outline"
                         className={cn(
                           'text-xs',
-                          tryResult.decision === 'approve'
+                          (tryResult.decision ?? tryResult.action) === 'approve'
                             ? 'text-emerald-500 border-emerald-500/30 bg-emerald-500/10'
-                            : tryResult.decision === 'manual_review'
+                            : (tryResult.decision ?? tryResult.action) === 'manual_review'
                             ? 'text-amber-500 border-amber-500/30 bg-amber-500/10'
                             : 'text-red-500 border-red-500/30 bg-red-500/10',
                         )}
                       >
-                        {String(tryResult.decision)}
+                        {String(tryResult.decision ?? tryResult.action)}
                       </Badge>
                     )}
                   </div>

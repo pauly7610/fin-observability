@@ -10,6 +10,7 @@ import csv
 from fastapi.responses import StreamingResponse
 from io import StringIO
 from opentelemetry import trace
+from apps.backend import siem, crypto_utils
 
 tracer = trace.get_tracer(__name__)
 
@@ -139,9 +140,9 @@ async def export_agent_actions(
                     writer.writerow({fn: getattr(action, fn) for fn in fieldnames})
                 output.seek(0)
                 # Hash chain and sign for manual export
-                from apps.backend.scheduled_exports import hash_chain_csv
+                from apps.backend.scheduled_exports import hash_chain_csv_from_string
 
-                last_hash = hash_chain_csv(output.getvalue())
+                last_hash = hash_chain_csv_from_string(output.getvalue())
                 signature = crypto_utils.sign_data(last_hash.encode())
                 span.set_attribute("export.hash", last_hash)
                 span.set_attribute(

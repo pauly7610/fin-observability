@@ -4,7 +4,7 @@ MCP Server for the Financial AI Observability Platform.
 Exposes compliance monitoring, anomaly detection, explainability,
 and metrics as MCP tools that any AI agent can connect to.
 
-Connect via: https://fin-observability-production.up.railway.app/mcp
+Connect via: MCP_PUBLIC_URL or API_URL env var (e.g. https://your-domain.com/mcp)
 """
 from mcp.server.fastmcp import FastMCP
 from datetime import datetime
@@ -183,7 +183,8 @@ def _check_compliance_single(amount: float, transaction_type: str, timestamp: st
 
     amount = _validate_amount(amount)
     txn_type = _validate_txn_type(transaction_type)
-    ts = _parse_timestamp(timestamp)
+    ts_str = _parse_timestamp(timestamp)
+    ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00"))
 
     detector = get_detector()
     score, details = detector.predict(amount=amount, timestamp=ts, txn_type=txn_type)

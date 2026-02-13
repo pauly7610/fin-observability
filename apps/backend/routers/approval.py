@@ -25,7 +25,22 @@ def submit_approval(
     db.add(req)
     db.commit()
     db.refresh(req)
-    return req
+    try:
+        from ..services.audit_trail_service import record_audit_event
+        record_audit_event(
+            db=db,
+            event_type="approval_requested",
+            entity_type="approval",
+            entity_id=str(req.id),
+            actor_type="human",
+            actor_id=user.id,
+            summary=f"Approval requested for {resource_type}/{resource_id}",
+            details={"reason": reason},
+            regulation_tags=["FINRA_4511"],
+        )
+    except Exception:
+        pass
+    return {"id": req.id, "resource_type": req.resource_type, "resource_id": req.resource_id, "status": req.status.value, "reason": req.reason}
 
 
 @router.get("/approval/")
@@ -57,4 +72,31 @@ def decide_approval(
     req.decided_at = datetime.utcnow()
     db.commit()
     db.refresh(req)
+    try:
+        from ..models import AuditTrailEntry
+        from ..services.audit_trail_service import record_audit_event
+        parent = (
+            db.query(AuditTrailEntry)
+            .filter(
+                AuditTrailEntry.event_type == "approval_requested",
+                AuditTrailEntry.entity_type == "approval",
+                AuditTrailEntry.entity_id == str(req.id),
+            )
+            .order_by(AuditTrailEntry.timestamp.desc())
+            .first()
+        )
+        record_audit_event(
+            db=db,
+            event_type="approval_decided",
+            entity_type="approval",
+            entity_id=str(req.id),
+            actor_type="human",
+            actor_id=user.id,
+            summary=f"Approval {decision} for {req.resource_type}/{req.resource_id}",
+            details={"decision": decision, "reason": decision_reason},
+            regulation_tags=["SEC_17a4", "FINRA_4511"],
+            parent_audit_id=parent.id if parent else None,
+        )
+    except Exception:
+        pass
     return req

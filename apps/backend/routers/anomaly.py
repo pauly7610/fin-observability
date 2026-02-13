@@ -2,8 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, Body
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from ..database import get_db
+from ..security import require_role
 from ..schemas import AnomalyDetectionRequest, AnomalyDetectionResponse
 from ..services.anomaly_detection import AnomalyDetectionService
+from ..services.anomaly_detection_service import AnomalyDetectionService as RetrainService
 from ..services.agentic_workflow_service import AgenticWorkflowService
 from ..models import Transaction, SystemMetric
 import logging
@@ -13,6 +15,7 @@ from apps.backend import siem
 router = APIRouter(prefix="/anomaly", tags=["anomaly"])
 logger = logging.getLogger(__name__)
 anomaly_service = AnomalyDetectionService()
+retrain_service = RetrainService()
 workflow_service = AgenticWorkflowService()
 
 
@@ -69,7 +72,11 @@ async def detect_anomalies(
 
 
 @router.get("/transactions/recent")
-async def get_recent_anomalies(limit: int = 100, db: Session = Depends(get_db)):
+async def get_recent_anomalies(
+    limit: int = 100,
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
+):
     """
     Get recent transactions marked as anomalies.
     """
@@ -165,6 +172,7 @@ async def train_anomaly_model(
         description="List of feature keys to use from meta/labels (optional)",
     ),
     db: Session = Depends(get_db),
+    user=Depends(require_role(["admin"])),
 ):
     """
     Retrain the anomaly detection model from historical data.
@@ -176,7 +184,7 @@ async def train_anomaly_model(
         span.set_attribute("source", source)
         span.set_attribute("feature_keys", str(feature_keys))
         try:
-            result = anomaly_service.retrain_from_historical(
+            result = retrain_service.retrain_from_historical(
                 db, source=source, feature_keys=feature_keys
             )
             if not result.get("success"):
@@ -201,6 +209,8 @@ async def train_anomaly_model(
                 1, {"type": "retrain", "status": "success", "user": "unknown"}
             )
             return {"message": "Model retrained successfully"}
+        except HTTPException:
+            raise
         except Exception as e:
             span.record_exception(e)
             from opentelemetry.trace.status import Status, StatusCode

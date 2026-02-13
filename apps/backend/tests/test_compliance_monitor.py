@@ -5,11 +5,14 @@ from datetime import datetime
 
 client = TestClient(app)
 
+ADMIN_HEADERS = {"x-user-email": "admin@example.com", "x-user-role": "admin"}
+
 
 def test_compliance_monitor_safe_transaction():
     """Test that a small ACH transaction is approved."""
     resp = client.post(
         "/agent/compliance/monitor",
+        headers=ADMIN_HEADERS,
         json={
             "id": "txn_test_safe",
             "amount": 5000,
@@ -31,6 +34,7 @@ def test_compliance_monitor_suspicious_transaction():
     """Test that a large wire transfer triggers manual review."""
     resp = client.post(
         "/agent/compliance/monitor",
+        headers=ADMIN_HEADERS,
         json={
             "id": "txn_test_suspicious",
             "amount": 50000,
@@ -50,6 +54,7 @@ def test_compliance_monitor_blocked_transaction():
     """Test that a very large transaction is blocked."""
     resp = client.post(
         "/agent/compliance/monitor",
+        headers=ADMIN_HEADERS,
         json={
             "id": "txn_test_blocked",
             "amount": 150000,
@@ -64,6 +69,36 @@ def test_compliance_monitor_blocked_transaction():
     assert data["action"] == "block"
     assert data["confidence"] >= 80
     assert "FINRA_4511" in data["reasoning"] or "100,000" in data["reasoning"] or "compliance" in data["reasoning"].lower()
+
+
+def test_compliance_monitor_persists_to_audit_trail():
+    """Compliance monitor should persist entry to audit_trail table."""
+    from apps.backend.database import SessionLocal
+    from apps.backend.models import AuditTrailEntry
+
+    resp = client.post(
+        "/agent/compliance/monitor",
+        headers=ADMIN_HEADERS,
+        json={
+            "id": "txn_persist_test",
+            "amount": 3000,
+            "counterparty": "Test Inc",
+            "account": "1111111111",
+            "timestamp": datetime.utcnow().isoformat(),
+            "type": "ach",
+        },
+    )
+    assert resp.status_code == 200
+    db = SessionLocal()
+    try:
+        entry = db.query(AuditTrailEntry).filter(
+            AuditTrailEntry.event_type == "compliance_monitor_decision",
+            AuditTrailEntry.entity_id == "txn_persist_test",
+        ).first()
+        assert entry is not None
+        assert "FINRA" in str(entry.regulation_tags or []) or "SEC" in str(entry.regulation_tags or [])
+    finally:
+        db.close()
 
 
 def test_compliance_status_endpoint():

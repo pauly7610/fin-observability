@@ -1,13 +1,32 @@
+import json
 from fastapi import APIRouter, HTTPException, Depends
 from sqlalchemy.orm import Session
-from typing import List, Optional
-from ..models import AgentAction as AgentActionModel, AgentActionAuditLog
+from typing import Any, Dict, List, Optional
+from ..models import AgentAction as AgentActionModel, AgentActionAuditLog, AuditTrailEntry
+
+AUDIT_DETAILS_MAX_BYTES = 2048
+
+
+def _truncate_for_audit(obj: Any, max_bytes: int = AUDIT_DETAILS_MAX_BYTES) -> Any:
+    """Truncate JSON-serializable object to max_bytes to avoid DB bloat."""
+    if obj is None:
+        return None
+    try:
+        s = json.dumps(obj) if not isinstance(obj, str) else obj
+        enc = s.encode("utf-8")
+        if len(enc) <= max_bytes:
+            return obj
+        truncated = enc[:max_bytes].decode("utf-8", errors="ignore")
+        return {"_truncated": True, "size_bytes": len(enc), "preview": truncated[:500] + "..."}
+    except (TypeError, ValueError):
+        return obj
 from ..database import get_db
 from ..schemas import AgentAction, AgentActionAuditLog as AgentActionAuditLogSchema
 from ..security import require_role
 from datetime import datetime
 import os
 from apps.backend import siem
+from ..services.audit_trail_service import record_audit_event
 
 router = APIRouter(prefix="/agent/ops", tags=["chatops", "ops", "human-in-the-loop"])
 
@@ -82,6 +101,56 @@ def write_audit_log(
     )
     db.add(audit)
     db.commit()
+    # Record to unified audit trail
+    _OPS_EVENT_MAP = {
+        "approved": ("agent_action_approved", ["SEC_17a4", "FINRA_4511"]),
+        "rejected": ("agent_action_rejected", ["SEC_17a4", "FINRA_4511"]),
+        "assigned": ("agent_action_assigned", ["FINRA_4511"]),
+        "escalated": ("agent_action_escalated", ["SEC_17a4"]),
+        "commented": ("agent_action_commented", ["FINRA_4511"]),
+    }
+    mapped = _OPS_EVENT_MAP.get(event_type)
+    if mapped:
+        audit_event_type, regulation_tags = mapped
+        summary = comment or f"{event_type}: {from_status or ''} → {to_status or ''}"
+        parent_audit_id = None
+        if event_type in ("approved", "rejected"):
+            parent = (
+                db.query(AuditTrailEntry)
+                .filter(
+                    AuditTrailEntry.entity_type == "agent_action",
+                    AuditTrailEntry.entity_id == str(agent_action_id),
+                    AuditTrailEntry.event_type == "agent_action_proposed",
+                )
+                .order_by(AuditTrailEntry.timestamp.desc())
+                .first()
+            )
+            if parent:
+                parent_audit_id = parent.id
+        details = {"comment": comment, "meta": meta}
+        if ai_explanation is not None:
+            details["ai_explanation"] = ai_explanation
+        if agent_input is not None:
+            details["agent_input"] = _truncate_for_audit(agent_input)
+        if agent_output is not None:
+            details["agent_output"] = _truncate_for_audit(agent_output)
+        if agent_version is not None:
+            details["agent_version"] = agent_version
+        try:
+            record_audit_event(
+                db=db,
+                event_type=audit_event_type,
+                entity_type="agent_action",
+                entity_id=str(agent_action_id),
+                actor_type=actor_type or "human",
+                actor_id=operator_id,
+                summary=summary[:500],
+                details=details,
+                regulation_tags=regulation_tags,
+                parent_audit_id=parent_audit_id,
+            )
+        except Exception:
+            pass
 
 
 @router.post("/actions/{action_id}/approve", response_model=AgentAction)
@@ -240,6 +309,11 @@ async def reject_agent_action(
         to_status="rejected",
         operator_id=user["id"] if isinstance(user, dict) and "id" in user else None,
         comment=comment,
+        ai_explanation=getattr(action, "ai_explanation", None),
+        agent_input=getattr(action, "agent_input", None),
+        agent_output=getattr(action, "agent_output", None),
+        agent_version=getattr(action, "agent_version", None),
+        actor_type="human",
     )
     return action
 

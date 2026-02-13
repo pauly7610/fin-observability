@@ -116,6 +116,9 @@ External System / AI Agent / Scheduled Pull
 | `WEBHOOK_CALLBACK_URLS` | Comma-separated outbound callback URLs |
 | `PULL_INGESTION_SOURCES` | JSON array of pull ingestion source configs |
 | `DRIFT_CHECK_HOURS` | Interval for drift-triggered retraining (default: 6) |
+| `PII_HASH_SALT` | Salt for deterministic PII hashing |
+| `PII_HASH_ENABLED` | Enable PII sanitization in audit trail (default: true) |
+| `AUDIT_RETENTION_YEARS` | Years to retain audit entries (default: 7, per SEC 17a-4) |
 | `GRAFANA_CLOUD_INSTANCE_ID` | Grafana Cloud instance for OTel export |
 | `GRAFANA_CLOUD_API_TOKEN` | Grafana Cloud API token |
 | `OTEL_SERVICE_NAME` | Service name for traces (default: fin-observability) |

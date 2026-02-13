@@ -36,8 +36,7 @@ import {
   Landmark,
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000';
+import apiClient from '@/lib/api-client';
 
 interface Transaction {
   id: string;
@@ -150,11 +149,8 @@ export function AgentComplianceMonitor() {
   const fetchMetrics = async () => {
     setMetricsLoading(true);
     try {
-      const response = await fetch(`${API_BASE}/agent/compliance/metrics`);
-      if (response.ok) {
-        const data = await response.json();
-        setMetrics(data);
-      }
+      const response = await apiClient.get('/agent/compliance/metrics');
+      setMetrics(response.data);
     } catch (err) {
       console.error('Failed to fetch metrics:', err);
     } finally {
@@ -170,15 +166,10 @@ export function AgentComplianceMonitor() {
     setTestBatchLoading(true);
     setTestBatchResult(null);
     try {
-      const response = await fetch(`${API_BASE}/agent/compliance/test-batch?count=100`, {
-        method: 'POST'
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setTestBatchResult(data);
-        // Refresh metrics after test batch
-        fetchMetrics();
-      }
+      const response = await apiClient.post('/agent/compliance/test-batch?count=100');
+      setTestBatchResult(response.data);
+      // Refresh metrics after test batch
+      fetchMetrics();
     } catch (err) {
       console.error('Test batch failed:', err);
     } finally {
@@ -225,22 +216,14 @@ export function AgentComplianceMonitor() {
 
     try {
       const { label, ...txnData } = selectedTxn;
-      const response = await fetch(`${API_BASE}/agent/compliance/monitor`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(txnData)
-      });
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.statusText}`);
-      }
-
-      const data = await response.json();
-      setResult(data);
+      const response = await apiClient.post('/agent/compliance/monitor', txnData);
+      setResult(response.data);
       // Refresh metrics after compliance check
       fetchMetrics();
     } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to check compliance');
+      const msg = (err as { response?: { data?: { detail?: string } }; message?: string })?.response?.data?.detail
+        ?? (err as Error)?.message ?? 'Failed to check compliance';
+      setError(String(msg));
       console.error('Compliance check failed:', err);
     } finally {
       setLoading(false);

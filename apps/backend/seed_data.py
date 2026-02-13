@@ -218,14 +218,14 @@ def seed_incidents(db, users):
 
     to_create = NUM_INCIDENTS - existing
     user_ids = [u.id for u in users] if users else [None]
+    incidents_to_add = []
 
     for _ in range(to_create):
         severity = random.choice(SEVERITIES)
         status = random.choice(INCIDENT_STATUSES)
         inc_type = random.choice(INCIDENT_TYPES)
         created = random_timestamp(days_back=14)
-
-        db.add(Incident(
+        inc = Incident(
             incident_id=f"INC-{uuid.uuid4().hex[:8].upper()}",
             title=f"{inc_type.replace('_', ' ').title()} detected on {random.choice(DESKS)}",
             description=f"Automated detection of {inc_type} event requiring investigation",
@@ -243,8 +243,25 @@ def seed_incidents(db, users):
             resolved_at=(created + timedelta(hours=random.randint(1, 72))) if status in ("resolved", "closed") else None,
             assigned_to=random.choice(user_ids),
             meta={"auto_detected": True, "confidence": round(random.uniform(0.6, 0.99), 2)},
-        ))
+        )
+        db.add(inc)
+        incidents_to_add.append(inc)
     db.commit()
+    for inc in incidents_to_add:
+        try:
+            from apps.backend.services.audit_trail_service import record_audit_event
+            record_audit_event(
+                db=db,
+                event_type="incident_created",
+                entity_type="incident",
+                entity_id=inc.incident_id,
+                actor_type="system",
+                summary=f"Incident created: {inc.title or inc.incident_id}",
+                details={"type": inc.type, "severity": inc.severity, "source": "seed_data"},
+                regulation_tags=["SEC_17a4"],
+            )
+        except Exception:
+            pass
     print(f"  Incidents: {to_create} created (total: {db.query(Incident).count()})")
 
 

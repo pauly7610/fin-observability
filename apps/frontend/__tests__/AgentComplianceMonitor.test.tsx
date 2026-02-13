@@ -2,20 +2,26 @@ import React from 'react'
 import { render, screen, fireEvent, waitFor } from '@testing-library/react'
 import { AgentComplianceMonitor } from '@/components/AgentComplianceMonitor'
 
-const originalFetch = global.fetch
+const mockGet = jest.fn()
+const mockPost = jest.fn()
 
-beforeEach(() => {
-  global.fetch = jest.fn()
-})
-
-afterEach(() => {
-  global.fetch = originalFetch
-})
+jest.mock('@/lib/api-client', () => ({
+  __esModule: true,
+  default: {
+    get: (...args: unknown[]) => mockGet(...args),
+    post: (...args: unknown[]) => mockPost(...args),
+    interceptors: { request: { use: jest.fn() }, response: { use: jest.fn() } },
+  },
+}))
 
 describe('AgentComplianceMonitor', () => {
+  beforeEach(() => {
+    mockGet.mockReset()
+    mockPost.mockReset()
+  })
+
   it('renders header and badges', async () => {
-    ;(global.fetch as jest.Mock)
-      .mockResolvedValueOnce({ ok: true, json: async () => ({}) })
+    mockGet.mockResolvedValue({ data: {} })
     render(<AgentComplianceMonitor />)
     await waitFor(() => {
       expect(screen.getByText('AI Agent: Financial Compliance Monitor')).toBeInTheDocument()
@@ -27,20 +33,14 @@ describe('AgentComplianceMonitor', () => {
   })
 
   it('renders metric cards when metrics are loaded', async () => {
-    ;(global.fetch as jest.Mock).mockImplementation((url: string) => {
-      if (url.includes('metrics')) {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            total_transactions: 1000,
-            approval_rate: 85,
-            block_rate: 5,
-            avg_confidence: 92,
-            storage: 'sqlite',
-          }),
-        })
-      }
-      return Promise.resolve({ ok: false })
+    mockGet.mockResolvedValue({
+      data: {
+        total_transactions: 1000,
+        approval_rate: 85,
+        block_rate: 5,
+        avg_confidence: 92,
+        storage: 'sqlite',
+      },
     })
     render(<AgentComplianceMonitor />)
     await waitFor(() => {
@@ -52,7 +52,7 @@ describe('AgentComplianceMonitor', () => {
   })
 
   it('shows Run Compliance Check button', async () => {
-    ;(global.fetch as jest.Mock).mockResolvedValue({ ok: true, json: async () => ({}) })
+    mockGet.mockResolvedValue({ data: {} })
     render(<AgentComplianceMonitor />)
     await waitFor(() => {
       expect(screen.getByRole('button', { name: /Run Compliance Check/i })).toBeInTheDocument()
@@ -60,23 +60,15 @@ describe('AgentComplianceMonitor', () => {
   })
 
   it('displays compliance result when check succeeds', async () => {
-    ;(global.fetch as jest.Mock).mockImplementation((url: string, opts?: { method?: string }) => {
-      if (url.includes('monitor') && opts?.method === 'POST') {
-        return Promise.resolve({
-          ok: true,
-          json: async () => ({
-            action: 'approve',
-            confidence: 95,
-            reasoning: 'Transaction within limits',
-            alternatives: [],
-            audit_trail: { regulation: 'FINRA 4511', timestamp: new Date().toISOString(), agent: 'ml-v2' },
-          }),
-        })
-      }
-      if (url.includes('metrics')) {
-        return Promise.resolve({ ok: true, json: async () => ({}) })
-      }
-      return Promise.resolve({ ok: false })
+    mockGet.mockResolvedValue({ data: {} })
+    mockPost.mockResolvedValue({
+      data: {
+        action: 'approve',
+        confidence: 95,
+        reasoning: 'Transaction within limits',
+        alternatives: [],
+        audit_trail: { regulation: 'FINRA 4511', timestamp: new Date().toISOString(), agent: 'ml-v2' },
+      },
     })
     render(<AgentComplianceMonitor />)
     await waitFor(() => {

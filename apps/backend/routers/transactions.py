@@ -11,7 +11,7 @@ from fastapi.responses import StreamingResponse
 from io import StringIO
 import os
 from apps.backend import siem, crypto_utils
-from apps.backend.scheduled_exports import hash_chain_csv
+from apps.backend.scheduled_exports import hash_chain_csv_from_string
 from opentelemetry import trace
 
 tracer = trace.get_tracer(__name__)
@@ -94,7 +94,7 @@ async def export_transactions(
                     writer.writerow({fn: getattr(t, fn) for fn in fieldnames})
                 output.seek(0)
                 # Hash chain and sign for manual export
-                last_hash = hash_chain_csv(output.getvalue())
+                last_hash = hash_chain_csv_from_string(output.getvalue())
                 signature = crypto_utils.sign_data(last_hash.encode())
                 span.set_attribute("export.hash", last_hash)
                 span.set_attribute(
@@ -136,6 +136,22 @@ async def export_transactions(
                     )
                     session.add(export_meta)
                     session.commit()
+                    session.refresh(export_meta)
+                    try:
+                        from ..services.audit_trail_service import record_audit_event
+                        record_audit_event(
+                            db=session,
+                            event_type="export_initiated",
+                            entity_type="export",
+                            entity_id=str(export_meta.id),
+                            actor_type="human",
+                            actor_id=user_id,
+                            summary="Transaction export initiated",
+                            details={"export_type": "transaction"},
+                            regulation_tags=["SEC_17a4"],
+                        )
+                    except Exception:
+                        pass
                 finally:
                     session.close()
                 return StreamingResponse(

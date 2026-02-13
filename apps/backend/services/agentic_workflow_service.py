@@ -6,6 +6,7 @@ from .agent_service import AgenticTriageService
 from .incident_remediation_service import IncidentRemediationService
 from .compliance_automation_service import ComplianceAutomationService
 from .audit_summary_service import AuditSummaryService
+from .audit_trail_service import record_audit_event
 from ..models import AgentAction, Incident
 
 STAGES = ["triage", "remediate", "compliance", "audit_summary"]
@@ -39,10 +40,24 @@ class AgenticWorkflowService:
             submitted_by=submitted_by,
             created_at=datetime.utcnow(),
             meta=incident,
+            agent_version=self.triage.__class__.__name__,
         )
         db.add(triage_action)
         db.commit()
         db.refresh(triage_action)
+        try:
+            record_audit_event(
+                db=db,
+                event_type="agent_action_proposed",
+                entity_type="agent_action",
+                entity_id=str(triage_action.id),
+                actor_type="agent",
+                summary=f"Workflow triage proposed for {incident.get('incident_id', 'unknown')}",
+                details={"action": "triage", "agent_version": triage_action.agent_version},
+                regulation_tags=["FINRA_4511"],
+            )
+        except Exception:
+            pass
         if auto_approved:
             # Immediately advance to next stage recursively
             return self._auto_advance_workflow(workflow_id, triage_action, db)
@@ -74,8 +89,10 @@ class AgenticWorkflowService:
         # Run next agent
         if next_stage == "remediate":
             result = self.remediate.remediate_incident(meta)
+            agent_version = self.remediate.__class__.__name__
         elif next_stage == "compliance":
             result = self.compliance.automate_compliance(meta)
+            agent_version = self.compliance.__class__.__name__
         elif next_stage == "audit_summary":
             logs = [
                 a.meta
@@ -85,6 +102,7 @@ class AgenticWorkflowService:
                 .all()
             ]
             result = self.audit.summarize_audit(logs)
+            agent_version = self.audit.__class__.__name__
         else:
             return {"error": f"Unknown next stage '{next_stage}'."}
         auto_approved = (
@@ -101,6 +119,7 @@ class AgenticWorkflowService:
             submitted_by=None,
             created_at=datetime.utcnow(),
             meta=meta,
+            agent_version=agent_version,
         )
         db.add(next_action)
         db.commit()
@@ -148,11 +167,14 @@ class AgenticWorkflowService:
         # Run next agent
         if next_stage == "remediate":
             result = self.remediate.remediate_incident(meta)
+            agent_version = self.remediate.__class__.__name__
         elif next_stage == "compliance":
             result = self.compliance.automate_compliance(meta)
+            agent_version = self.compliance.__class__.__name__
         elif next_stage == "audit_summary":
             logs = [a.meta for a in actions]
             result = self.audit.summarize_audit(logs)
+            agent_version = self.audit.__class__.__name__
         else:
             return {"error": f"Unknown next stage '{next_stage}'."}
         auto_approved = (
@@ -169,10 +191,24 @@ class AgenticWorkflowService:
             submitted_by=None,
             created_at=datetime.utcnow(),
             meta=meta,
+            agent_version=agent_version,
         )
         db.add(next_action)
         db.commit()
         db.refresh(next_action)
+        try:
+            record_audit_event(
+                db=db,
+                event_type="agent_action_proposed",
+                entity_type="agent_action",
+                entity_id=str(next_action.id),
+                actor_type="agent",
+                summary=f"Workflow {next_stage} proposed (advance)",
+                details={"action": next_stage, "agent_version": next_action.agent_version},
+                regulation_tags=["FINRA_4511"],
+            )
+        except Exception:
+            pass
         if auto_approved:
             # Recursively advance
             return self._auto_advance_workflow(workflow_id, next_action, db)

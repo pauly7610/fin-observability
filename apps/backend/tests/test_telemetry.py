@@ -18,6 +18,7 @@ class TestMetricsMiddleware:
         assert telemetry.export_job_counter is not None
         assert telemetry.compliance_action_counter is not None
         assert telemetry.anomaly_detected_counter is not None
+        assert telemetry.audit_trail_write_failures_counter is not None
 
     def test_health_request_records_metrics(self):
         """A request to /health should not crash the metrics middleware."""

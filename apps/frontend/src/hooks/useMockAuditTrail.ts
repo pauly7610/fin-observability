@@ -1,12 +1,12 @@
 import { useQuery } from '@tanstack/react-query';
+import apiClient from '@/lib/api-client';
 
 export function useMockAuditTrail() {
   return useQuery({
     queryKey: ['mock_audit_trail'],
     queryFn: async () => {
-      const res = await fetch('/api/mock_audit_trail');
-      if (!res.ok) throw new Error('Failed to fetch mock audit trail');
-      return res.json();
+      const res = await apiClient.get('/api/mock_audit_trail');
+      return res.data;
     },
   });
 } 

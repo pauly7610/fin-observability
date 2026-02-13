@@ -125,6 +125,8 @@ Sensitive backend actions (agentic triage, remediation, compliance automation, a
 - Every approval request and decision is logged in the audit trail (`AgentActionAuditLog`), including decision reasons and timestamps.
 - SIEM/syslog events are emitted for all approval and rejection actions.
 - The audit trail is surfaced both in the backend and in the frontend UI for transparency.
+- **PII sanitization:** `details` and `meta` are hashed before storage (field-name + value-based regex). Set `PII_HASH_ENABLED=false` to disable.
+- **Retention:** 7 years (configurable via `AUDIT_RETENTION_YEARS`). Run `python scripts/archive_audit_trail.py` for periodic archival.
 
 ### Frontend Integration
 
@@ -211,13 +213,15 @@ All agentic actions and audit logs include:
 
 ## Environment Variables
 
-See `.env` for all configuration, including:
+See `env.example` for all configuration, including:
 
 - Database connection (Postgres)
 - SMTP/email for exports
 - AWS/S3 for export delivery
 - Signing key vault integration
 - SIEM/syslog host/port
+- **PII:** `PII_HASH_SALT`, `PII_HASH_ENABLED` (default true)
+- **Audit retention:** `AUDIT_RETENTION_YEARS` (default 7)
 
 ---
 

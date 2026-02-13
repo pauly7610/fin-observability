@@ -6,6 +6,7 @@ from ..services.agent_service import AgenticTriageService
 from ..services.incident_remediation_service import IncidentRemediationService
 from ..services.compliance_automation_service import ComplianceAutomationService
 from ..services.audit_summary_service import AuditSummaryService
+from ..services.audit_trail_service import record_audit_event
 from ..services.llm_utils import get_llm_config, set_llm_config
 from ..services.agentic_workflow_service import AgenticWorkflowService
 from ..services.metrics_service import get_metrics_service
@@ -46,8 +47,8 @@ tracer = trace.get_tracer(__name__)
 async def triage_incident(
     request: Request,
     incident: Dict[str, Any],
-    db: Session = Depends(get_db)
-    # user=Depends(require_role(["admin", "compliance", "analyst"]))
+    db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst"])),
 ):
     """Run agentic triage on an incident/anomaly and submit for approval."""
     siem.send_syslog_event(
@@ -82,6 +83,19 @@ async def triage_incident(
         db.add(agent_action)
         db.commit()
         db.refresh(agent_action)
+        try:
+            record_audit_event(
+                db=db,
+                event_type="agent_action_proposed",
+                entity_type="agent_action",
+                entity_id=str(agent_action.id),
+                actor_type="agent",
+                summary=f"Triage proposed for {incident.get('incident_id', 'unknown')}",
+                details={"action": "triage", "result": result, "agent_version": getattr(agent_action, "agent_version", None)},
+                regulation_tags=["FINRA_4511"],
+            )
+        except Exception:
+            pass
         response = {"result": result, "action_id": agent_action.id}
         if isinstance(result, dict):
             if "rationale" in result:
@@ -100,6 +114,7 @@ async def list_agent_actions(
     request: Request,
     status: str = None,
     db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """List agent actions, optionally filtered by status."""
     siem.send_syslog_event(
@@ -350,6 +365,19 @@ async def automate_compliance(
         db.add(agent_action)
         db.commit()
         db.refresh(agent_action)
+        try:
+            record_audit_event(
+                db=db,
+                event_type="agent_action_proposed",
+                entity_type="agent_action",
+                entity_id=str(agent_action.id),
+                actor_type="agent",
+                summary=f"Compliance automation proposed for {transaction.get('transaction_id', 'unknown')}",
+                details={"action": "compliance", "result": result, "agent_version": getattr(agent_action, "agent_version", None)},
+                regulation_tags=["FINRA_4511"],
+            )
+        except Exception:
+            pass
         response = {"result": result, "action_id": agent_action.id}
         if isinstance(result, dict):
             if "rationale" in result:
@@ -460,6 +488,7 @@ async def monitor_transaction_compliance(
     request: Request,
     txn: ComplianceMonitorTransaction,
     db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """
     FINRA 4511 compliant transaction monitoring with agent orchestration.
@@ -582,6 +611,41 @@ async def monitor_transaction_compliance(
                 1,
                 {"type": "compliance_monitor", "action": decision.action},
             )
+
+            # Persist to unified audit trail
+            input_summary = {
+                "amount": txn.amount,
+                "type": txn.type,
+                "timestamp": txn.timestamp.isoformat() if hasattr(txn.timestamp, "isoformat") else str(txn.timestamp),
+                "counterparty": txn.counterparty,
+                "account": txn.account,
+            }
+            details = {
+                "action": decision.action,
+                "confidence": decision.confidence,
+                "reasoning": decision.reasoning,
+                "model_version": feature_details.get("model_version", "unknown"),
+                "anomaly_score": anomaly_score,
+                "risk_factors": risk_factors,
+                "input_summary": input_summary,
+                "alternatives": [
+                    {"action": alt.action, "confidence": alt.confidence, "reasoning": alt.reasoning}
+                    for alt in decision.alternatives
+                ],
+            }
+            try:
+                record_audit_event(
+                    db=db,
+                    event_type="compliance_monitor_decision",
+                    entity_type="transaction",
+                    entity_id=txn.id,
+                    actor_type="agent",
+                    summary=f"{decision.action}: {decision.reasoning[:200]}",
+                    details=details,
+                    regulation_tags=["FINRA_4511", "SEC_17a4"],
+                )
+            except Exception:
+                pass
             
             return decision
             
@@ -1037,6 +1101,7 @@ async def get_eval_audit_trail(
 async def run_compliance_test_batch(
     request: Request,
     count: int = 100,
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """
     Generate and test synthetic transactions for validation.

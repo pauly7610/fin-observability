@@ -1,13 +1,13 @@
 'use client'
 import { useQuery } from '@tanstack/react-query'
+import apiClient from '@/lib/api-client'
 
 export function useMetrics() {
   return useQuery({
     queryKey: ['metrics'],
     queryFn: async ({ signal }) => {
-      const res = await fetch('/api/metrics', { signal })
-      if (!res.ok) throw new Error('Network response was not ok')
-      return res.json()
+      const res = await apiClient.get('/api/metrics', { signal })
+      return res.data
     },
     initialData: {
       uptime: 0,

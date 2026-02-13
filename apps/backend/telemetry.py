@@ -33,6 +33,7 @@ compliance_action_counter = None
 anomaly_detected_counter = None
 http_request_counter = None
 http_request_duration = None
+audit_trail_write_failures_counter = None
 
 
 def _build_otlp_config():
@@ -68,7 +69,7 @@ def init_tracing(resource: Resource, endpoint: str, headers: dict):
 def init_metrics(resource: Resource, endpoint: str, headers: dict):
     """Configure MeterProvider, OTLP metric exporter, and application counters."""
     global export_job_counter, compliance_action_counter, anomaly_detected_counter
-    global http_request_counter, http_request_duration
+    global http_request_counter, http_request_duration, audit_trail_write_failures_counter
 
     if endpoint:
         exporter = OTLPMetricExporter(endpoint=f"{endpoint}/v1/metrics", headers=headers)
@@ -102,6 +103,10 @@ def init_metrics(resource: Resource, endpoint: str, headers: dict):
         name="http_request_duration_ms",
         description="HTTP request duration in milliseconds",
         unit="ms",
+    )
+    audit_trail_write_failures_counter = meter.create_counter(
+        name="audit_trail_write_failures_total",
+        description="Total audit trail write failures",
     )
 
 

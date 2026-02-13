@@ -31,6 +31,8 @@ ADMIN_HEADERS = {
     "x-user-role": "admin",
 }
 
+WEBHOOK_HEADERS = {"X-Webhook-Key": "test-webhook-key"}
+
 
 # ---------------------------------------------------------------------------
 # Inbound webhook ingestion
@@ -40,7 +42,7 @@ class TestWebhookIngestion:
         resp = client.post(
             "/webhooks/transactions",
             json={"amount": 5000, "type": "wire_transfer", "transaction_id": f"test-single-{id(self)}"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -53,7 +55,7 @@ class TestWebhookIngestion:
             {"amount": 100 + i, "type": "ach", "transaction_id": f"test-batch-{id(self)}-{i}"}
             for i in range(5)
         ]
-        resp = client.post("/webhooks/transactions", json=txns, headers=ADMIN_HEADERS)
+        resp = client.post("/webhooks/transactions", json=txns, headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         assert data["ingested"] == 5
@@ -64,7 +66,7 @@ class TestWebhookIngestion:
         resp = client.post(
             "/webhooks/transactions",
             content='"not an object or list"',
-            headers={**ADMIN_HEADERS, "content-type": "application/json"},
+            headers={**WEBHOOK_HEADERS, "content-type": "application/json"},
         )
         assert resp.status_code == 400
 
@@ -72,7 +74,7 @@ class TestWebhookIngestion:
         resp = client.post(
             "/webhooks/transactions",
             json={"amount": -100, "transaction_id": f"test-neg-{id(self)}"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -82,7 +84,7 @@ class TestWebhookIngestion:
         resp = client.post(
             "/webhooks/transactions",
             json={"amount": 999},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -92,7 +94,7 @@ class TestWebhookIngestion:
         resp = client.post(
             "/webhooks/transactions",
             json=[{"amount": 100}, "not a dict", {"amount": 200}],
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -109,26 +111,26 @@ class TestWebhookResults:
         client.post(
             "/webhooks/transactions",
             json={"amount": 7777, "transaction_id": f"test-results-{id(self)}"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
-        resp = client.get("/webhooks/results", headers=ADMIN_HEADERS)
+        resp = client.get("/webhooks/results", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         assert "count" in data
         assert "results" in data
 
     def test_get_results_with_limit(self):
-        resp = client.get("/webhooks/results?limit=2", headers=ADMIN_HEADERS)
+        resp = client.get("/webhooks/results?limit=2", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         assert data["count"] <= 2
 
     def test_get_results_flagged_only(self):
-        resp = client.get("/webhooks/results?flagged_only=true", headers=ADMIN_HEADERS)
+        resp = client.get("/webhooks/results?flagged_only=true", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
 
     def test_get_results_by_source(self):
-        resp = client.get("/webhooks/results?source=webhook", headers=ADMIN_HEADERS)
+        resp = client.get("/webhooks/results?source=webhook", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
 
 
@@ -226,7 +228,7 @@ class TestCallbackEndpoints:
         resp = client.post(
             "/webhooks/callbacks",
             json={"url": "https://test-callback.example.com/hook"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 200
         assert resp.json()["registered"] == "https://test-callback.example.com/hook"
@@ -235,7 +237,7 @@ class TestCallbackEndpoints:
         resp = client.post(
             "/webhooks/callbacks",
             json={"url": "not-a-url"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 400
 
@@ -243,19 +245,19 @@ class TestCallbackEndpoints:
         resp = client.post(
             "/webhooks/callbacks",
             json={"name": "test"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 400
 
     def test_list_callbacks_endpoint(self):
-        resp = client.get("/webhooks/callbacks", headers=ADMIN_HEADERS)
+        resp = client.get("/webhooks/callbacks", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         assert "callbacks" in data
         assert "delivery_log" in data
 
     def test_dlq_endpoint(self):
-        resp = client.get("/webhooks/callbacks/dlq", headers=ADMIN_HEADERS)
+        resp = client.get("/webhooks/callbacks/dlq", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         assert "count" in data
@@ -305,7 +307,7 @@ class TestPullIngestionEndpoints:
         resp = client.post(
             "/webhooks/pull/sources",
             json={"name": "test-endpoint-src", "url": "https://api.example.com/transactions"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 200
         data = resp.json()
@@ -316,19 +318,19 @@ class TestPullIngestionEndpoints:
         resp = client.post(
             "/webhooks/pull/sources",
             json={"name": "bad-source"},
-            headers=ADMIN_HEADERS,
+            headers=WEBHOOK_HEADERS,
         )
         assert resp.status_code == 400
 
     def test_list_sources_endpoint(self):
-        resp = client.get("/webhooks/pull/sources", headers=ADMIN_HEADERS)
+        resp = client.get("/webhooks/pull/sources", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 200
         data = resp.json()
         assert "sources" in data
         assert "results" in data
 
     def test_trigger_nonexistent_source(self):
-        resp = client.post("/webhooks/pull/trigger/nonexistent", headers=ADMIN_HEADERS)
+        resp = client.post("/webhooks/pull/trigger/nonexistent", headers=WEBHOOK_HEADERS)
         assert resp.status_code == 404
 
 

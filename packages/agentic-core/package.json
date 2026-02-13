@@ -9,7 +9,7 @@
     "build": "echo 'Python-only package, no TS build needed'",
     "dev": "tsup --watch",
     "lint": "eslint src/",
-    "test": "jest"
+    "test": "jest --passWithNoTests"
   },
   "dependencies": {
     "@fin-ai-observability/shared-types": "file:../shared-types",

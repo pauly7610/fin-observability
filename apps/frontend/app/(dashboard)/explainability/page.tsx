@@ -13,8 +13,7 @@ import {
   Cell,
   ReferenceLine,
 } from 'recharts'
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
+import apiClient from '@/lib/api-client'
 
 interface FeatureExplanation {
   feature: string
@@ -177,25 +176,17 @@ export default function ExplainabilityPage() {
     setLoading(true)
     setError('')
     try {
-      const res = await fetch(`${API_BASE}/agent/compliance/explain`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-user-email': 'admin@example.com',
-          'x-user-role': 'admin',
+      const res = await apiClient.post('/agent/compliance/explain', {
+        transaction: {
+          amount: parseFloat(amount),
+          type,
+          timestamp: new Date(timestamp).toISOString(),
         },
-        body: JSON.stringify({
-          transaction: {
-            amount: parseFloat(amount),
-            type,
-            timestamp: new Date(timestamp).toISOString(),
-          },
-        }),
       })
-      if (!res.ok) throw new Error(await res.text())
-      setResult(await res.json())
-    } catch (e: any) {
-      setError(e.message || 'Failed to explain')
+      setResult(res.data)
+    } catch (e: unknown) {
+      const err = e as { message?: string; response?: { data?: { detail?: string } } }
+      setError(err.message || err.response?.data?.detail || 'Failed to explain')
     } finally {
       setLoading(false)
     }

@@ -2,7 +2,9 @@ from fastapi import APIRouter, Depends, HTTPException, Request
 from apps.backend.rate_limit import limiter
 from sqlalchemy.orm import Session
 from typing import Dict, Any, List
+import os
 from ..services.agent_service import AgenticTriageService
+from ..services.audit_trail_service import record_audit_event
 from ..services.incident_remediation_service import IncidentRemediationService
 from ..services.compliance_automation_service import ComplianceAutomationService
 from ..services.audit_summary_service import AuditSummaryService
@@ -43,10 +45,24 @@ async def trigger_triage(
         submitted_by=user.id,
         created_at=datetime.utcnow(),
         meta=incident,
+        agent_version=triage_service.__class__.__name__,
     )
     db.add(agent_action)
     db.commit()
     db.refresh(agent_action)
+    try:
+        record_audit_event(
+            db=db,
+            event_type="agent_action_proposed",
+            entity_type="agent_action",
+            entity_id=str(agent_action.id),
+            actor_type="agent",
+            summary=f"Ops trigger triage for {incident.get('incident_id', 'unknown')}",
+            details={"action": "triage", "agent_version": agent_action.agent_version},
+            regulation_tags=["FINRA_4511"],
+        )
+    except Exception:
+        pass
     response = {"result": result, "action_id": agent_action.id}
     if isinstance(result, dict):
         if "rationale" in result:
@@ -113,10 +129,24 @@ async def trigger_compliance(
         submitted_by=user.id,
         created_at=datetime.utcnow(),
         meta=transaction,
+        agent_version=compliance_service.__class__.__name__,
     )
     db.add(agent_action)
     db.commit()
     db.refresh(agent_action)
+    try:
+        record_audit_event(
+            db=db,
+            event_type="agent_action_proposed",
+            entity_type="agent_action",
+            entity_id=str(agent_action.id),
+            actor_type="agent",
+            summary=f"Ops trigger compliance for {transaction.get('incident_id', 'unknown')}",
+            details={"action": "compliance", "agent_version": agent_action.agent_version},
+            regulation_tags=["FINRA_4511"],
+        )
+    except Exception:
+        pass
     response = {"result": result, "action_id": agent_action.id}
     if isinstance(result, dict):
         if "rationale" in result:
@@ -143,13 +173,27 @@ async def trigger_audit_summary(
         action="audit_summary",
         agent_result=result,
         status="pending",
-        submitted_by=user.id,
+        submitted_by=getattr(user, "id", None),
         created_at=datetime.utcnow(),
         meta={"logs": logs},
+        agent_version=audit_service.__class__.__name__,
     )
     db.add(agent_action)
     db.commit()
     db.refresh(agent_action)
+    try:
+        record_audit_event(
+            db=db,
+            event_type="agent_action_proposed",
+            entity_type="agent_action",
+            entity_id=str(agent_action.id),
+            actor_type="agent",
+            summary="Ops trigger audit summary",
+            details={"action": "audit_summary", "agent_version": agent_action.agent_version},
+            regulation_tags=["FINRA_4511"],
+        )
+    except Exception:
+        pass
     response = {"result": result, "action_id": agent_action.id}
     if isinstance(result, dict):
         if "rationale" in result:

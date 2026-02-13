@@ -24,22 +24,32 @@ apiClient.interceptors.request.use(async (config) => {
       const token = tokenGetter ? await tokenGetter() : null
       if (token) {
         config.headers.Authorization = `Bearer ${token}`
-      } else {
-        config.headers['x-user-email'] = 'admin@example.com'
-        config.headers['x-user-role'] = 'admin'
       }
+      // When no token: send no auth headers (backend returns 401 or demo viewer)
     } catch {
-      config.headers['x-user-email'] = 'admin@example.com'
-      config.headers['x-user-role'] = 'admin'
+      // On error: send no auth headers
     }
   }
   return config
 })
 
-// Response interceptor for error handling
+const AUTH_ROUTES = ['/sign-in', '/sign-up']
+
+function shouldRedirectToSignIn(): boolean {
+  if (typeof window === 'undefined') return false
+  const path = window.location.pathname
+  return !AUTH_ROUTES.some((r) => path.startsWith(r))
+}
+
+// Response interceptor: redirect to sign-in on 401
 apiClient.interceptors.response.use(
   (response) => response,
-  (error) => Promise.reject(error)
+  (error) => {
+    if (error.response?.status === 401 && shouldRedirectToSignIn()) {
+      window.location.assign('/sign-in')
+    }
+    return Promise.reject(error)
+  }
 )
 
 export function validateResponse<T>(response: { data: unknown }, schema: z.ZodType<T>): T {

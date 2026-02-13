@@ -100,7 +100,7 @@ def process_event(event, event_type, anomaly_service):
     if event_type == "orders" and normalized["status"] == "pending":
         ts_str = str(normalized.get("timestamp") or event.get("created_at") or "")
         try:
-            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00")) if ts_str else datetime.utcnow()()
+            ts = datetime.fromisoformat(ts_str.replace("Z", "+00:00")) if ts_str else datetime.utcnow()
             if ts.tzinfo:
                 ts = ts.astimezone(timezone.utc).replace(tzinfo=None)
         except Exception:
@@ -153,6 +153,21 @@ def process_event(event, event_type, anomaly_service):
             )
             db.add(incident)
             db.commit()
+            db.refresh(incident)
+            try:
+                from apps.backend.services.audit_trail_service import record_audit_event
+                record_audit_event(
+                    db=db,
+                    event_type="incident_created",
+                    entity_type="incident",
+                    entity_id=incident.incident_id,
+                    actor_type="system",
+                    summary=f"Incident created: {incident.title or incident.incident_id}",
+                    details={"type": incident.type, "severity": incident.severity, "source": "kafka"},
+                    regulation_tags=["SEC_17a4"],
+                )
+            except Exception:
+                pass
             print(f"[Kafka] Incident created: {incident.incident_id}")
             if priority == 1:
                 try:

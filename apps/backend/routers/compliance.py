@@ -5,6 +5,7 @@ from typing import List
 from ..database import get_db
 from ..schemas import ComplianceLog, ComplianceLogCreate
 from ..models import ComplianceLog as ComplianceLogModel
+from ..pii_utils import hash_pii_in_dict
 import logging
 from datetime import datetime
 import os
@@ -24,12 +25,32 @@ async def create_compliance_log(
 ):
     """
     Create a new compliance log entry.
+    PII in meta is hashed before storage.
     """
     try:
-        new_log = ComplianceLogModel(**log.dict())
+        log_data = log.dict()
+        if log_data.get("meta"):
+            meta, _ = hash_pii_in_dict(log_data["meta"])
+            log_data["meta"] = meta
+        new_log = ComplianceLogModel(**log_data)
         db.add(new_log)
         db.commit()
         db.refresh(new_log)
+        try:
+            from ..services.audit_trail_service import record_audit_event
+            record_audit_event(
+                db=db,
+                event_type="compliance_log_created",
+                entity_type="compliance_log",
+                entity_id=str(new_log.id),
+                actor_type="human",
+                actor_id=getattr(user, "id", None),
+                summary=f"Compliance log: {log_data.get('event_type', 'event')}",
+                details={"event_type": log_data.get("event_type"), "severity": log_data.get("severity")},
+                regulation_tags=["FINRA_4511"],
+            )
+        except Exception:
+            pass
         siem.send_syslog_event(
             event="Compliance log created",
             host=os.getenv("SIEM_SYSLOG_HOST", "localhost"),
@@ -52,6 +73,7 @@ async def get_compliance_logs(
     is_resolved: bool = None,
     limit: int = 100,
     db: Session = Depends(get_db),
+    user=Depends(require_role(["admin", "compliance", "analyst", "viewer"])),
 ):
     """
     Get compliance logs with optional filtering.

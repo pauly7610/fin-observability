@@ -106,6 +106,32 @@ The Financial AI Observability Platform blends the real-time, data-rich feel of 
 
 ---
 
+## MCP Integration
+
+- **Purpose:** Expose compliance monitoring, anomaly detection, explainability, and metrics as MCP tools so any AI agent (Claude, Cursor, Windsurf) can connect.
+- **Tool catalog:** 9 tools including `check_transaction_compliance`, `explain_transaction`, `batch_check_compliance`, `analyze_portfolio`, `ingest_transactions`, `get_compliance_metrics`, `list_incidents`, `get_drift_status`, `get_model_leaderboard`.
+- **Auth:** When `MCP_API_KEY` env var is set, AI clients must pass it via `X-MCP-API-Key` header or `Authorization: Bearer <key>`. Dashboard endpoints `/mcp/stats` and `/mcp/tools` use normal user auth.
+- **Connect page:** Copy config for Windsurf, Claude, or Cursor; Try It Live uses `POST /api/compliance/check` for MCP-equivalent response.
+
+---
+
+## API Auth
+
+- **Flow:** Frontend uses Clerk for sign-in; `AuthTokenProvider` passes `getToken()` to `api-client`. Backend validates JWT or header auth; when no token, returns 401 or demo viewer (when `DEMO_MODE=true`).
+- **Fallback:** No admin fallback. Unauthenticated requests receive 401; frontend redirects to `/sign-in` on 401.
+- **Headers:** `Authorization: Bearer <token>` or `x-user-email` + `x-user-role` (for dev/testing).
+
+---
+
+## Webhook & Ingestion
+
+- **Webhook:** POST transactions to `/webhooks/transactions`; each is scored and stored. Auth via `X-Webhook-Key`.
+- **MCP:** `ingest_transactions` tool pushes up to 10,000 transactions for scoring + storage.
+- **Kafka:** When `KAFKA_BROKERS` is set, consumer runs in-app; events (orders, executions, trades) create incidents.
+- **Pull:** Scheduled pull sources fetch from external APIs; configurable via `/webhooks/pull/sources`.
+
+---
+
 ## Accessibility
 
 - High-contrast colors for all critical information.

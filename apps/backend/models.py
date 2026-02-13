@@ -207,6 +207,37 @@ class ExportMetadata(Base):
     requester = relationship("User", foreign_keys=[requested_by])
 
 
+class SystemConfig(Base):
+    """Key-value store for generated secrets (webhook key, MCP key, etc.)."""
+
+    __tablename__ = "system_config"
+    key = Column(String, primary_key=True)
+    value = Column(String, nullable=False)
+    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
+class AuditTrailEntry(Base):
+    """
+    Unified, append-only audit trail for compliance (SEC 17a-4, FINRA 4511).
+    Every auditable event writes here; immutable.
+    """
+    __tablename__ = "audit_trail"
+    id = Column(Integer, primary_key=True, index=True)
+    timestamp = Column(DateTime, default=datetime.utcnow)
+    event_type = Column(String, nullable=False, index=True)
+    entity_type = Column(String, nullable=False, index=True)
+    entity_id = Column(String, index=True, nullable=True)
+    actor_type = Column(String, nullable=False)
+    actor_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    summary = Column(String, nullable=False)
+    details = Column(JSON, nullable=True)
+    regulation_tags = Column(JSON, nullable=True)  # ["SEC_17a4", "FINRA_4511", ...]
+    parent_audit_id = Column(Integer, ForeignKey("audit_trail.id"), nullable=True)
+    meta = Column(JSON, nullable=True)
+
+    actor = relationship("User", foreign_keys=[actor_id])
+
+
 class ComplianceFeedback(Base):
     __tablename__ = "compliance_feedback"
 

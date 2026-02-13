@@ -149,7 +149,7 @@ Every step in this chain — from the raw prediction to the human override — i
 
 - **Authentication** — Clerk for sign-in, sign-up, and session management
 - **RBAC** — Four roles (admin/compliance/analyst/viewer) with 25 fine-grained permissions
-- **Audit trail** — Every action, override, and escalation is logged with timestamps and actor identity
+- **Audit trail** — Every action, override, and escalation is logged with timestamps and actor identity. PII in `details`/`meta` is hashed before storage (field-name + value-based regex). 7-year retention (configurable); run `scripts/archive_audit_trail.py` for periodic archival.
 - **Regulatory alignment** — SEC 17a-4 / FINRA 4511 rule engine
 
 ### Webhook & Streaming System
@@ -228,6 +228,9 @@ fin-observability/
 │   │   └── tests/                # 122 tests (webhooks, RBAC, drift, telemetry, integration)
 │   └── frontend/                 # Next.js 16 (App Router, React 19)
 │       └── __tests__/            # Jest smoke tests
+├── scripts/                      # Operational scripts
+│   ├── archive_audit_trail.py    # Delete audit entries older than AUDIT_RETENTION_YEARS
+│   └── load_test.py              # Load testing
 ├── otel-collector/               # OTel Collector config + Dockerfile
 ├── grafana/dashboards/           # Importable 12-panel dashboard JSON
 ├── infra/                        # Pulumi IaC for Railway
